@@ -10,7 +10,7 @@ module.exports = function(grunt) {
 			},
 			dist: {
 				src: ['src/main/javascript/**/*.js'],
-				dest: 'dist/lc-core.js',
+				dest: 'dist/lc-ui.js/lc-ui.js',
 			}
 		},
 		uglify: {
@@ -19,7 +19,7 @@ module.exports = function(grunt) {
 			},
 			all: {
 				files: {
-					'dist/lc-ui.min.js': ['dist/lc-ui.js']
+					'dist/lc-ui.js/lc-ui.min.js': ['dist/lc-ui.js/lc-ui.js']
 				}
 			}
 		},
