@@ -1,0 +1,19 @@
+@import "icons.less";
+@import "draw/minimize-window.less";
+@import "draw/maximize-window.less";
+
+.default-icons-set {
+	.icon-mixin(@icon) {
+		.default-icon(@icon);
+	}
+}
+
+.default-icon(@icon) when (@icon = minimize-window) {
+	.draw-minimize-window;
+}
+
+.default-icon(@icon) when (@icon = maximize-window) {
+	.draw-maximize-window;
+}
+
+.icons-set({.default-icons-set});

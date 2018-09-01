@@ -2,6 +2,7 @@ module.exports = function(grunt) {
 	grunt.loadNpmTasks('grunt-contrib-concat');
 	grunt.loadNpmTasks('grunt-contrib-uglify');
 	grunt.loadNpmTasks('grunt-newer');
+	grunt.loadNpmTasks('grunt-contrib-less');
 	grunt.loadNpmTasks('grunt-contrib-jasmine');
 	grunt.initConfig({
 		concat: {
@@ -23,6 +24,26 @@ module.exports = function(grunt) {
 				}
 			}
 		},
+		less: {
+			ui: {
+				options: {
+					compress: true,
+					sourceMap:true
+				},
+				files: {
+					'dist/lc-ui.js/lc-ui.css': ['src/main/javascript/**/*.less','src/main/less/default-style.less']
+				}
+			},
+			themes: {
+				options: {
+					compress: true,
+					sourceMap:true
+				},
+				files: {
+					'dist/lc-ui.js/themes/classic/theme-classic.css': 'src/main/theme/classic/theme.less'
+				}
+			}
+		},
 		jasmine: {
 			src: 'src/main/javascript/**/*.js',
 			options: {
@@ -31,6 +52,6 @@ module.exports = function(grunt) {
 			}
 		}
     });
-    grunt.registerTask('default', ['jasmine','newer:concat','newer:uglify']);
-    grunt.registerTask('release', ['jasmine','concat','uglify']);
+    grunt.registerTask('default', ['jasmine','newer:concat','newer:uglify','less:ui','less:themes']);
+    grunt.registerTask('release', ['jasmine','concat','uglify','less:ui','less:themes']);
 };

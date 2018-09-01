@@ -1,0 +1,21 @@
+@header-gradient-gray-color1: #F0F0F0;
+@header-gradient-gray-color2: #C0C0C0;
+
+@header-gradient-blue-color1: #E0E8F8;
+@header-gradient-blue-color2: #B0C0E8;
+
+@header-gradient-color1: @header-gradient-blue-color1;
+@header-gradient-color2: @header-gradient-blue-color2;
+
+.header-gradient(@color1: @header-gradient-color1, @color2: @header-gradient-color2) {
+	background: linear-gradient(to bottom, @color1 0%, @color2 100%);
+	color: black;
+}
+
+.header-gradient-pushed(@color1: @header-gradient-color1, @color2: @header-gradient-color2) {
+	.header-gradient(darken(@color1,20%),@color2);
+}
+
+.header-gradient-highlight(@color1: @header-gradient-color1, @color2: @header-gradient-color2) {
+	.header-gradient(@color1,lighten(@color2,10%));
+}

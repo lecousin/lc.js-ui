@@ -104,11 +104,28 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.context"], function()
 	});
 
 	lc.core.extendClass("lc.ui.Component.Extension", lc.Extension, function() {}, {
+		extensionName: null,
+		
+		detect: function(component) {
+			return lc.css.hasClass(component.container, component.componentName + "-" + this.extensionName) ||
+				component.container.hasAttribute(component.componentName + "-" + this.extensionName);
+		},
+		
+		init: function(component) {
+			lc.css.addClass(component.container, component.componentName + "-" + this.extensionName);
+			if (component.isConfigured())
+				this.postConfigure(component);
+			if (component.isBuilt())
+				this.postBuild(component);
+		},
+
 		preConfigure: function(component) {},
 		postConfigure: function(component) {},
 		preBuild: function(component) {},
 		postBuild: function(component) {},
-		destroyed: function(component) {}
+		destroyed: function(component) {
+			lc.css.removeClass(component.container, component.componentName + "-" + this.extensionName);
+		}
 	});
 	
 	lc.ui.Component.preProcessComponent = function(element, elementStatus, globalStatus) {
