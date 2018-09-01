@@ -1,4 +1,4 @@
-lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.context"], function() {
+lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.Context"], function() {
 	
 	lc.core.extendClass("lc.ui.Component", [lc.Extendable, lc.events.Producer],
 		function(container, doNotConfigure, doNotBuild) {
@@ -12,7 +12,7 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.context"], function()
 			else
 				this.container = container;
 
-			lc.context.setAttribute(this.container, "lc.ui.Component", this);
+			lc.Context.get(this.container).addProperty("lc.ui.Component", this);
 
 			lc.events.listen(this.container, 'destroy', new lc.async.Callback(this, this.destroy));
 			lc.css.addClass(this.container, this.componentName);
@@ -72,7 +72,7 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.context"], function()
 				this._destroyed = true;
 				this.callExtensions("destroyed", this);
 				lc.Extendable.prototype.destroy.call(this);
-				lc.context.removeAttribute(this.container, "lc.ui.Component");
+				lc.Context.get(this.container).removeProperty("lc.ui.Component");
 				while (this.container.childNodes.length > 0) {
 					var child = this.container.removeChild(this.container.childNodes[0]);
 					if (child.nodeType == 1)
@@ -130,7 +130,8 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.context"], function()
 	
 	lc.ui.Component.preProcessComponent = function(element, elementStatus, globalStatus) {
 		if (element.nodeType != 1) return;
-		if (lc.context.getAttribute(element, "lc.ui.Component")) return;
+		var ctx = lc.Context.get(element, true);
+		if (ctx && ctx.hasProperty("lc.ui.Component")) return;
 		var newElement = null;
 		for (var i = 0; i < lc.ui.Component.Registry.components.length; ++i) {
 			if (element.nodeName.toLowerCase() == lc.ui.Component.Registry.components[i].prototype.componentName.toLowerCase()) {
@@ -145,7 +146,7 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.context"], function()
 			}
 		}
 		if (!newElement) return;
-		lc.context.getAttribute(newElement, "lc.ui.Component").performConfiguration();
+		lc.Context.get(element)["lc.ui.Component"].performConfiguration();
 		// if the component replaced the element, we must resume the HTML processing with the new element
 		if (newElement != element)
 			for (var i = 0; i < newElement.childNodes.length; ++i)
@@ -154,7 +155,8 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.context"], function()
 	};
 	
 	lc.ui.Component.postProcessComponent = function(element, elementStatus, globalStatus) {
-		var component = lc.context.getAttribute(element, "lc.ui.Component");
+		var ctx = lc.Context.get(element, true);
+		var component = lc.Context.getValue(element, "lc.ui.Component");
 		if (!component) return;
 		component.performBuild();
 	};
@@ -170,7 +172,7 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.context"], function()
 	};
 	
 	lc.ui.Component.getInstancesRecursive = function(type, element, found) {
-		var component = lc.context.getAttribute(element, "lc.ui.Component");
+		var component = lc.Context.getValue(element, "lc.ui.Component");
 		if (component && (!type || lc.core.instanceOf(component, type)))
 			found.push(component);
 		for (var i = 0; i < element.childNodes.length; ++i)

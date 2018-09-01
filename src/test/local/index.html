@@ -2,15 +2,30 @@
 <html>
 <head>
 	<script type="text/javascript" src="../../../../core/dist/lc-core.js/lc-core.min.js"></script>
+	<script type="text/javascript" src="../../../../dynamic-ui/dist/lc-dynamic-ui.js/lc-dynamic-ui.min.js"></script>
 	<script type="text/javascript" src="../../../dist/lc-ui.js/lc-ui.min.js"></script>
 	<link rel="stylesheet" type="text/css" href="../../../dist/lc-ui.js/lc-ui.css">
 	<link rel="stylesheet" type="text/css" href="../../../dist/lc-ui.js/themes/classic/theme-classic.css">
 </head>
 <body class="lc-theme-classic">
 
-<lc-panel lc-panel-collapsible>
-	<title>A panel</title>
-</lc-panel>
+<div style="display: flex; flex-direction: row; align-items: center;">
+
+	<lc-panel lc-panel-collapsible style="flex: 1 1 100%;" id="panel">
+		<title>A panel</title>
+		<content>
+			<p>This is a beautiful panel</p>
+			<p>Let try the different available extensions</p>
+		</content>
+	</lc-panel>
+
+	<div style="flex: 1 1 100%;">
+		<lc-dyn-foreach array="lc.Extension.Registry.getAvailableFor(lc.ui.Panel)" var="ext">
+			<input type="checkbox" lc-dyn-property-checked="$(panel)['lc.ui.Component'].hasExtension(ext)" lc-dyn-event-change="var c = $(panel)['lc.ui.Component']; if (this.checked) c.addExtension(ext); else c.removeExtension(ext);"/> <lc-dyn>ext.prototype.extensionName</lc-dyn>
+		</lc-dyn-foreach>
+	</div>
+</div>
+
 
 <script type="text/javascript">
 lc.log.setDefaultLevel(lc.log.Levels.TRACE);
