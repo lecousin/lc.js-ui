@@ -79,7 +79,7 @@
 	</lc-panel>
 
 	<lc-dyn-apply-template name="extensionsTemplate">
-		<variable name="component">$(panel)['lc.ui.Component']</variable>
+		<variable name="component">lc.Context.get(document.getElementById('panel'))['lc.ui.Component']</variable>
 	</lc-dyn-apply-template>
 </div>
 
@@ -93,7 +93,31 @@
 	</div>
 
 	<lc-dyn-apply-template name="extensionsTemplate">
-		<variable name="component">$(progressbar)['lc.ui.Component']</variable>
+		<variable name="component">lc.Context.get(document.getElementById('progressbar'))['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
+
+<div class="componentTest">
+
+	<div>
+		<div>Menu:</div>
+	
+		<lc-menu id="menu">
+			<div value="1">Option 1</div>
+			<div value="2">Option two</div>
+			<div not-item>Not an option</div>
+			<div item-group>
+				<title>A sub-menu</title>
+				<div value="s.1">Sub-option 1</div>
+				<div not-item>Not a sub-option</div>
+				<div value="s.2">Sub-option two</div>
+			</div>
+			<div value="last">Last option</div>
+		</lc-menu>
+	</div>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">lc.Context.get(document.getElementById('menu'))['lc.ui.Component']</variable>
 	</lc-dyn-apply-template>
 </div>
 
