@@ -1,0 +1,45 @@
+.draw-close-window() {
+
+    width: 16px;
+    height: 15px;
+	position: relative;
+	
+	&:after {
+	    position: relative;
+	    content: "\d7";
+	    color: white;
+	    font-size: 26px;
+	    top: -50%;
+	    left: 0px;
+	    text-shadow: -1px 0 #808080, 0 1px #808080, 1px 0 #808080, 0 -1px #808080;
+	}
+
+    &:hover:after {
+    	text-shadow: -1px 0 1px #404040, 0 1px 1px #404040, 1px 0 1px #404040, 0 -1px 1px #404040;
+    	cursor: pointer;
+    }
+	
+	/*
+    width: 16px;
+    height: 16px;
+	position: relative;
+	
+	&:before, &:after {
+		content: '';
+		position: absolute;
+		background-color: white;
+		border: 1px solid #808080;
+		border-radius: 2px;
+		height: 2px;
+		width: 14px;
+		top: 6px;
+		left: 0px;
+	}    
+
+	&:before {
+		transform: rotate(45deg);
+	}    
+	&:after {
+		transform: rotate(-45deg);
+	}     */
+}

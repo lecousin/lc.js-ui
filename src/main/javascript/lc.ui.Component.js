@@ -72,7 +72,8 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.Context"], function()
 				this._destroyed = true;
 				this.callExtensions("destroyed", this);
 				lc.Extendable.prototype.destroy.call(this);
-				lc.Context.get(this.container).removeProperty("lc.ui.Component");
+				var ctx = lc.Context.get(this.container, true);
+				if (ctx) ctx.removeProperty("lc.ui.Component");
 				while (this.container.childNodes.length > 0) {
 					var child = this.container.removeChild(this.container.childNodes[0]);
 					if (child.nodeType == 1)

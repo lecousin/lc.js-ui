@@ -54,9 +54,7 @@ lc.app.onDefined("lc.ui.Panel", function() {
 		
 		destroy: function(panel) {
 			if (!panel.collapseDiv) return;
-			lc.events.destroyed(panel.collapseDiv);
-			if (panel.collapseDiv.parentNode)
-				panel.collapseDiv.parentNode.removeChild(panel.collapseDiv);
+			lc.html.remove(panel.collapseDiv);
 			panel.collapseDiv = null;
 			lc.ui.Component.Extension.call(this, panel);
 		}

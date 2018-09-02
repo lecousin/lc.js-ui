@@ -1,6 +1,7 @@
 @import "icons.less";
 @import "draw/minimize-window.less";
 @import "draw/maximize-window.less";
+@import "draw/close-window.less";
 
 .default-icons-set {
 	.icon-mixin(@icon) {
@@ -14,6 +15,10 @@
 
 .default-icon(@icon) when (@icon = maximize-window) {
 	.draw-maximize-window;
+}
+
+.default-icon(@icon) when (@icon = close-window) {
+	.draw-close-window;
 }
 
 .icons-set({.default-icons-set});

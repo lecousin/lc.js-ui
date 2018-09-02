@@ -6,12 +6,71 @@
 	<script type="text/javascript" src="../../../dist/lc-ui.js/lc-ui.min.js"></script>
 	<link rel="stylesheet" type="text/css" href="../../../dist/lc-ui.js/lc-ui.css">
 	<link rel="stylesheet" type="text/css" href="../../../dist/lc-ui.js/themes/classic/theme-classic.css">
+	<style type="text/css">
+		.componentTest {
+			display: flex;
+			flex-direction: row;
+			align-items: flex-start;
+			border: 1px solid black;
+			margin: 5px;
+		}
+		.componentTest>* {
+			flex: 1 1 100%;
+			margin: 5px;
+		}
+		.configComponent {
+			flex: 1 1 100%;
+			align-self: stretch;
+			border-left: 1px solid black;
+			margin: 0px;
+			padding: 5px;
+			display:flex;
+			flex-direction: row;
+		}
+		.configComponent>* {
+			margin-right: 5px;
+		}
+		.configurationTable {
+			border: 1px solid #A0A0A0;
+		}
+	</style>
 </head>
 <body class="lc-theme-classic">
 
-<div style="display: flex; flex-direction: row; align-items: center;">
+<table lc-dyn-template="configurationTable" class="configurationTable">
+		<tr><th colspan=2>Configurations</th></tr>
+		<tr lc-dyn-foreach="configName in Object.keys(configurable.configurableProperties)">
+			<td><lc-dyn>configName</lc-dyn></td>
+			<td>
+				<input lc-dyn-if="configurable.configurableProperties[configName].types.indexOf('boolean') >= 0" type="checkbox" lc-dyn-property-checked="configurable[configName]" lc-dyn-event-change="configurable[configName] = this.checked;"/>
+				<input lc-dyn-if="configurable.configurableProperties[configName].types.indexOf('integer') >= 0" type="integer" lc-dyn-property-value="configurable[configName]" lc-dyn-event-change="configurable[configName] = this.value;"/>
+				<input lc-dyn-if="configurable.configurableProperties[configName].types.indexOf('string') >= 0" type="text" lc-dyn-property-value="configurable[configName]" lc-dyn-event-change="configurable[configName] = this.value;"/>
+			</td>
+		</tr>
+</table>
 
-	<lc-panel lc-panel-collapsible style="flex: 1 1 100%;" id="panel">
+<div lc-dyn-template="extensionsTemplate" class="configComponent">
+	<div lc-dyn-if="lc.core.instanceOf(component, lc.Configurable)">
+		<lc-dyn-apply-template name="configurationTable">
+			<variable name="configurable">component</variable>
+		</lc-dyn-apply-template>
+	</div>
+	<div>
+		<b>Extensions</b><br/>
+		<div lc-dyn-foreach="ext in lc.Extension.Registry.getAvailableFor(component.constructor)">
+			<input type="checkbox" lc-dyn-property-checked="component.hasExtension(ext)" lc-dyn-event-change="if (this.checked) component.addExtension(ext); else component.removeExtension(ext);"/> <lc-dyn>ext.prototype.extensionName</lc-dyn>
+			<div lc-dyn-if="component.hasExtension(ext) && lc.core.instanceOf(component.getExtension(ext), lc.Configurable)">
+				<lc-dyn-apply-template name="configurationTable">
+					<variable name="configurable">component.getExtension(ext)</variable>
+				</lc-dyn-apply-template>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="componentTest">
+
+	<lc-panel lc-panel-collapsible id="panel">
 		<title>A panel</title>
 		<content>
 			<p>This is a beautiful panel</p>
@@ -19,11 +78,23 @@
 		</content>
 	</lc-panel>
 
-	<div style="flex: 1 1 100%;">
-		<lc-dyn-foreach array="lc.Extension.Registry.getAvailableFor(lc.ui.Panel)" var="ext">
-			<input type="checkbox" lc-dyn-property-checked="$(panel)['lc.ui.Component'].hasExtension(ext)" lc-dyn-event-change="var c = $(panel)['lc.ui.Component']; if (this.checked) c.addExtension(ext); else c.removeExtension(ext);"/> <lc-dyn>ext.prototype.extensionName</lc-dyn>
-		</lc-dyn-foreach>
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">$(panel)['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
+
+<div class="componentTest">
+
+	<div>
+		<div>Progress Bar:</div>
+	
+		<lc-progress-bar id="progressbar" text="Doing something..." total="1000" position="128">
+		</lc-progress-bar>
 	</div>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">$(progressbar)['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
 </div>
 
 
