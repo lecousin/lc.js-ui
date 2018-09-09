@@ -1,99 +1,507 @@
+lc.app.onDefined(["lc.ui.DropDown.Extension"], function() {
+	lc.core.extendClass("lc.ui.DropDown.Multiple", [lc.ui.Menu.Extension, lc.Configurable],
+		function() {
+			var properties = {
+				separator: {
+					types: ["string","Node"],
+					value: ", ",
+					set: function(value, properties) {
+						properties.separator.value = value;
+						this.dropdown.$setContentFromSelection();
+					}
+				}
+			};
+			lc.Configurable.call(this, properties);
+		}, {
+			extensionName: "multiple",
+			
+			init: function(dropdown) {
+				this.dropdown = dropdown;
+				dropdown.menu.singleSelection = false;
+				this._previousSetContentFromSelection = dropdown.$setContentFromSelection;
+				dropdown.$setContentFromSelection = function() {
+					var sel = this.menu.getSelection();
+					lc.html.empty(this.container);
+					if (sel.length == 0)
+						this.container.appendChild(this.$emptySelection);
+					else {
+						var sep = this.getExtension(lc.ui.DropDown.Multiple).separator;
+						var content = document.createElement("DIV");
+						content.className = "lc-dropdown-multiple-content";
+						for (var i = 0; i < sel.length; ++i) {
+							var item = sel[i];
+							var element = this.menu.getItemOriginalElement(item);
+							if (element.hasAttribute("text"))
+								element = document.createTextNode(element.getAttribute("text"));
+							else
+								element = element.cloneNode(true);
+							if (i > 0) {
+								if (typeof sep === "string") {
+									var span = document.createElement("SPAN");
+									span.appendChild(document.createTextNode(sep));
+									span.className = "lc-dropdown-multiple-separator";
+									content.appendChild(span);
+								} else
+									content.appendChild(sep.cloneNode(true));
+							}
+							content.appendChild(element);
+						}
+						this.container.appendChild(content);
+					}
+				};
+				
+				Object.defineProperty(dropdown, "values", {
+					get: function() {
+						var sel = this.menu.getSelection();
+						var values = [];
+						for (var i = 0; i < sel.length; ++i)
+							values.push(this.getItemValue(sel[i]));
+						return values;
+					},
+					set: function(values) {
+						var items = this.menu.getItems();
+						var sel = [];
+						for (var i = 0; i < items.length; ++i)
+							if (values.indexOf(this.getItemValue(items[i])) >= 0)
+								sel.push(items[i]);
+						this.menu.selectItems(sel);
+					}
+				});
+			},
+			
+			destroy: function(dropdown) {
+				this.dropdown = null;
+				dropdown.menu.singleSelection = true;
+				dropdown.$setContentFromSelection = this._previousSetContentFromSelection;
+				delete dropdown["values"];
+			}
+		}
+	);
+	
+	lc.Extension.Registry.register(lc.ui.DropDown, lc.ui.DropDown.Multiple);
+});
+
+lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
+	
+	lc.core.extendClass("lc.ui.DropDown", [lc.ui.Component], 
+		function(container, doNotConfigure, doNotBuild) {
+			this.menu = new lc.ui.Menu(document.createElement("DIV"), true, true);
+			this.popin = new lc.ui.Popin(document.createElement("DIV"));
+			lc.css.addClass(this.popin.container, "lc-pop-in-contextual");
+			this.popin.container.appendChild(this.menu.container);
+			this.popin.addExtension(lc.ui.Popin.AutoHide);
+			
+			// transfer options/extensions to menu and pop-in
+			for (var i = 0; i < container.attributes.length; ++i) {
+				var a = container.attributes.item(i);
+				if (a.nodeName.toLowerCase().startsWith("lc-menu-"))
+					this.menu.container.setAttribute(a.nodeName, a.nodeValue);
+				else if (a.nodeName.toLowerCase().startsWith("lc-pop-in-"))
+					this.popin.container.setAttribute(a.nodeName, a.nodeValue);
+			}
+			var list = lc.css.getClasses(container);
+			for (var i = 0; i < list.length; ++i) {
+				var c = list[i];
+				if (c.toLowerCase().startsWith("lc-menu-"))
+					lc.css.addClass(this.menu.container, c);
+				else if (c.toLowerCase().startsWith("lc-pop-in-"))
+					lc.css.addClass(this.popin.container, c);
+			}
+			
+			Object.defineProperty(this, "value", {
+				get: function() {
+					var sel = this.menu.getSelection();
+					if (sel.length == 0) return undefined;
+					return this.getItemValue(sel[0]);
+				},
+				set: function(value) {
+					var items = this.menu.getItems();
+					var item = null;
+					for (var i = 0; i < items.length; ++i)
+						if (this.getItemValue(items[i]) == value) {
+							item = items[i];
+							break;
+						}
+					if (!item)
+						lc.log.warn("lc.ui.DropDown", "Set value to " + value + " but no item has this value. Ignored.");
+					else
+						this.menu.select(item);
+				}
+			});
+			
+			lc.ui.Component.call(this, container, doNotConfigure, doNotBuild);
+		}, {
+			componentName: "lc-dropdown",
+			value: null,
+			$emptySelection: null,
+			
+			configure: function() {
+				this.registerEvents(["selectionChanged"]);
+				// TODO if name attribute, create a hidden input with this select value
+				
+				this.popin.getExtension(lc.ui.Popin.AutoHide).ignoreClickOnElements.push(this.container);
+
+				this._width = 20;
+				this._height = 15;
+				this.$emptySelection = document.createElement("DIV");
+
+				this.menu.performConfiguration();
+				this.popin.performConfiguration();
+				
+				this.popin.attachTo(this.container);
+				this.popin.attachVertical = "bottom-start";
+				this.popin.attachHorizontal = "left-start";
+				this.popin.forceOrientation = false;
+				
+				lc.events.listen(this.container, "click", new lc.async.Callback(this, function() {
+					this.popin.toggleShow();
+				}));
+				
+				this.menu.on("selectionChanged", new lc.async.Callback(this, this._menuItemSelected));
+				this.menu.on("itemAdded", new lc.async.Callback(this, this._menuItemAdded));
+				this.menu.on("itemRemoved", new lc.async.Callback(this, this._computeSize));
+				
+				this.popin.on("show", new lc.async.Callback(this, function() { lc.css.addClass(this.container, "dropdown-open"); }));
+				this.popin.on("hide", new lc.async.Callback(this, function() { lc.css.removeClass(this.container, "dropdown-open"); }));
+			},
+			
+			build: function() {
+				while (this.container.childNodes.length > 0)
+					this.menu.container.appendChild(this.container.childNodes[0]);
+				this.menu.performBuild();
+				this.popin.performBuild();
+				this._computeSize();
+				this._menuItemSelected();
+			},
+			
+			getItemValue: function(item) {
+				if (typeof item.value !== 'undefined') return item.value;
+				var e = this.menu.getItemOriginalElement(item);
+				if (e.hasAttribute("value"))
+					return e.getAttribute("value");
+				return undefined;
+			},
+			
+			_menuItemSelected: function() {
+				this.$setContentFromSelection();
+				if (this.container.childNodes.length > 0) {
+					this.container.childNodes[0].style.minWidth = this._width + 'px';
+					this.container.childNodes[0].style.minHeight = this._height + 'px';
+				}
+				this.trigger("selectionChanged");
+			},
+			
+			$setContentFromSelection: function() {
+				var sel = this.menu.getSelection();
+				var item = sel.length > 0 ? sel[0] : null;
+				lc.html.empty(this.container);
+				if (item) {
+					var element = this.menu.getItemOriginalElement(item).cloneNode(true);
+					this.container.appendChild(element);
+					this.popin.hide();
+				} else {
+					this.container.appendChild(this.$emptySelection);
+				}
+			},
+			
+			_menuItemAdded: function(menu, item) {
+				this._computeItemSize(item);
+				if (item.element.__select_menu_item_width > this._width) this._width = item.element.__select_menu_item_width;
+				if (item.element.__select_menu_item_height > this._height) this._height = item.element.__select_menu_item_height;
+				if (this.container.childNodes.length > 0 && this.isBuilt()) {
+					this.container.childNodes[0].style.minWidth = this._width + 'px';
+					this.container.childNodes[0].style.minHeight = this._height + 'px';
+				}
+			},
+			
+			_computeItemSize: function(item) {
+				var e = this.menu.getItemOriginalElement(item).cloneNode(true);
+				e.style.position = "fixed";
+				e.style.top = "-10000px";
+				e.style.left = "-10000px";
+				document.body.appendChild(e);
+				item.element.__select_menu_item_width = e.offsetWidth;
+				item.element.__select_menu_item_height = e.offsetHeight;
+				document.body.removeChild(e);
+			},
+			
+			_computeSize: function() {
+				var w = 20, h = 15;
+				var items = this.menu.getItems();
+				for (var i = 0; i < items.length; ++i) {
+					if (typeof items[i].element.__select_menu_item_width === 'undefined')
+						this._computeItemSize(items[i]);
+					if (items[i].element.__select_menu_item_width > w) w = items[i].element.__select_menu_item_width;
+					if (items[i].element.__select_menu_item_height > h) h = items[i].element.__select_menu_item_height;
+				}
+				this._width = w;
+				this._height = h;
+				if (this.container.childNodes.length > 0 && this.isBuilt()) {
+					this.container.childNodes[0].style.minWidth = this._width + 'px';
+					this.container.childNodes[0].style.minHeight = this._height + 'px';
+				}
+			},
+						
+			destroy: function() {
+				lc.ui.Component.prototype.destroy.call(this);
+				lc.ui.Choice.prototype.destroy.call(this);
+				this.$emptySelection = null;
+				this.menu.destroy();
+				this.menu = null;
+				this.popin.destroy();
+				this.popin = null;
+			}
+		}
+	);
+	
+	lc.ui.Component.Registry.register(lc.ui.DropDown);
+	
+	lc.core.extendClass("lc.ui.DropDown.Extension", lc.ui.Component.Extension, function() {}, {
+	});
+});
+lc.app.onDefined(["lc.ui.Menu.Extension"], function() {
+	lc.core.extendClass("lc.ui.Menu.Checkbox", [lc.ui.Menu.Extension],
+		function() {
+		}, {
+			extensionName: "checkbox",
+			priority: -5000, // very low so we can add the checkbox at the beginning
+			
+			init: function(menu) {
+				var items = menu.getItems();
+				for (var i = 0; i < items.length; ++i)
+					this.beforeItemAdded(menu, items[i]);
+			},
+			
+			beforeItemAdded: function(menu, item) {
+				if (lc.core.instanceOf(item, lc.ui.Choice.Item.Selectable)) {
+					var cb = document.createElement("INPUT");
+					item._menu_checkbox = cb;
+					cb.type = "checkbox";
+					cb.checked = item.selected;
+					cb.disabled = item.disabled;
+					item.element.insertBefore(cb, item.element.childNodes[0]);
+					cb.onchange = function() {
+						item.selected = this.checked;
+					};
+					item.on("selectedChanged", function() {
+						cb.checked = item.selected;
+					});
+					item.on("disabledChanged", function() {
+						cb.disabled = item.disabled;
+					});
+				} else {
+					var cb = document.createElement("INPUT");
+					item._menu_checkbox = cb;
+					cb.type = "checkbox";
+					cb.style.opacity = "0";
+					item.element.insertBefore(cb, item.element.childNodes[0]);
+				}
+			},
+			
+			destroy: function(menu) {
+				var items = menu.getItems();
+				for (var i = 0; i < items.length; ++i)
+					if (items[i]._menu_checkbox) {
+						lc.html.remove(items[i]._menu_checkbox);
+						items[i]._menu_checkbox = null;
+					}
+			}
+		}
+	);
+	
+	lc.Extension.Registry.register(lc.ui.Menu, lc.ui.Menu.Checkbox);
+});
+
+lc.app.onDefined(["lc.ui.Menu.Extension"], function() {
+	lc.core.extendClass("lc.ui.Menu.SubMenu", [lc.ui.Menu.Extension],
+		function() {
+		}, {
+			extensionName: "sub-menu",
+			priority: -5000, // very low, so we can add the arrow at the end
+			
+			init: function(menu) {
+				var items = menu.getItems();
+				for (var i = 0; i < items.length; ++i)
+					this.beforeItemAdded(menu, items[i]);
+				
+				this._previousCreateItem = menu.createItem;
+				menu.createItem = function(element) {
+					if (element.hasAttribute("sub-menu"))
+						element.setAttribute("not-selectable","true");
+					return this.getExtension(lc.ui.Menu.SubMenu)._previousCreateItem.call(this, element);
+				};
+			},
+			
+			_handleSubMenu: function(menu, item) {
+				if (item.subMenu) return;
+				var element = menu.getItemOriginalElement(item);
+				if (!element.hasAttribute("sub-menu")) return;
+				for (var i = 0; i < element.childNodes.length; ++i) {
+					if (element.childNodes[i].nodeType != 1) continue;
+					var ctx = lc.Context.get(element.childNodes[i], true);
+					if (!ctx || typeof ctx['lc.ui.Component'] === 'undefined') continue;
+					var comp = ctx['lc.ui.Component'];
+					if (lc.core.instanceOf(comp, lc.ui.Menu)) {
+						item.subMenu = comp;
+						element.removeChild(element.childNodes[i]);
+						break;
+					}
+				}
+				if (!item.subMenu) return;
+				item.subMenu.parentMenu = menu;
+				lc.ui.Menu.SubMenu._itemSelected(menu); // cancel any pending selection on sub-menus
+				lc.css.addClass(item.element, "clickable");
+				lc.css.addClass(item.element, "lc-menu-sub-menu");
+				lc.events.listen(item.element, "click", item._subMenuClick = new lc.async.Callback(item, function() {
+					if (!this.subMenuPopin) {
+						var div = document.createElement("DIV");
+						div.appendChild(this.subMenu.container);
+						div.className = "lc-pop-in-contextual";
+						this.subMenuPopin = new lc.ui.Popin(div);
+						this.subMenuPopin.attachTo(this.element);
+						var s = getComputedStyle(this.subMenu.parentMenu.container);
+						if (typeof s["flexDirection"] !== 'undefined' && s["flexDirection"] == "row") {
+							this.subMenuPopin.attachVertical = "bottom-start";
+							this.subMenuPopin.attachHorizontal = "left-start";
+						} else {
+							this.subMenuPopin.attachVertical = "top-start";
+							this.subMenuPopin.attachHorizontal = "right-start";
+						}
+						this.subMenuPopin.addExtension(lc.ui.Popin.AutoHide).ignoreClickOnElements.push(this.element);
+						this.subMenu.on("selectionChanged", item._subMenuSelectionChanged = new lc.async.Callback(this, function() {
+							if (this.subMenu.getSelection().length > 0) {
+								this.subMenuPopin.hide();
+								lc.ui.Menu.SubMenu._itemSelected(this.subMenu);
+							}
+						}));
+					}
+					this.subMenuPopin.toggleShow();
+				}));
+			},
+			
+			itemCreated: function(menu, item) {
+				this._handleSubMenu(menu, item);
+			},
+			
+			beforeItemAdded: function(menu, item) {
+				this._handleSubMenu(menu, item);
+				// append arrow at the end
+				var div = document.createElement("DIV");
+				div.className = "lc-menu-sub-menu-arrow";
+				item.element.appendChild(div);
+			},
+			
+			destroy: function(menu) {
+				menu.createItem = this._previousCreateItem;
+				this._previousCreateItem = null;
+				var items = menu.getItems();
+				for (var i = 0; i < items.length; ++i) {
+					var item = items[i];
+					if (item.subMenu) {
+						var element = menu.getItemOriginalElement(item);
+						element.setAttribute("sub-menu", "");
+						element.appendChild(item.subMenu.container);
+						if (item._subMenuSelectionChanged)
+							item.subMenu.unlisten("selectionChanged", item._subMenuSelectionChanged);
+						item.subMenu.parentMenu = null;
+						item.subMenu = null;
+						item.subMenuPopin.destroy();
+						item.subMenuPopin = null;
+						lc.css.removeClass(item.element, "lc-menu-sub-menu");
+						lc.css.removeClass(item.element, "clickable");
+						lc.events.unlisten(item.element, "click", item._subMenuClick);
+						item._subMenuClick = null;
+					}
+					for (var j = 0; j < item.element.childNodes.length; ++j)
+						if (item.element.childNodes[j].nodeType == 1 && lc.css.hasClass(item.element.childNodes[j], "lc-menu-sub-menu-arrow")) {
+							lc.html.remove(item.element.childNodes[j]);
+							j--;
+						}
+				}
+			}
+		}
+	);
+	
+	lc.Extension.Registry.register(lc.ui.Menu, lc.ui.Menu.SubMenu);
+	
+	lc.ui.Menu.SubMenu._itemSelected = function(menu) {
+		var m = menu;
+		while (m.parentMenu) m = m.parentMenu;
+		var unselect = function(m) {
+			if (m !== menu) m.unselectAll();
+			var items = m.getItems();
+			for (var i = 0; i < items.length; ++i)
+				if (items[i].subMenu)
+					unselect(items[i].subMenu);
+		};
+		unselect(m);
+	}
+});
+
 lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 	
 	lc.core.extendClass("lc.ui.Menu", [lc.ui.Component, lc.ui.Choice], 
 		function(container, doNotConfigure, doNotBuild) {
+			lc.ui.Choice.call(this, container, true);
 			lc.ui.Component.call(this, container, doNotConfigure, doNotBuild);
-			lc.ui.Choice.call(this, this.container, true);
+			this.styles = ["menu-bar", "tab-folder"];
 		}, {
 			componentName: "lc-menu",
 			
 			configure: function() {
-				this.on("elementAdded", new lc.async.Callback(this, this._createElement));
+				this.on("itemAdded", function(that, item) { that.$itemAdded(item); });
 			},
 			
 			build: function() {
-				this.buildGroupContent(this.container, this);
+				this.buildFromContent(this.container);
 			},
 			
-			buildElement: function(node, parent) {
-				var element;
-				if (node.nodeType != 1 || node.hasAttribute("not-item"))
-					element = node;
-				else if (node.hasAttribute("item-group"))
-					element = this.buildGroup(node, parent);
-				else
-					element = this.buildItem(node, parent);
-				return element;
+			buildItem: function(element) {
+				if (element.nodeType != 1) return;
+				var item = this.createItem(element);
+				this.addItem(item);
 			},
 			
-			buildGroup: function(node, parent) {
-				var group = new lc.ui.Choice.Group(document.createElement("DIV"), parent);
-				this.buildGroupContent(node, group);
-				return group;
+			createItem: function(element) {
+				if (!element.hasAttribute("not-selectable"))
+					return new lc.ui.Choice.Item.Selectable(this, element);
+				return new lc.ui.Choice.Item(this, element);
 			},
 			
-			buildGroupContent: function(node, group) {
-				var content = [];
-				while (node.childNodes.length > 0) content.push(node.removeChild(node.childNodes[0]));
-				for (var i = 0; i < content.length; ++i) {
-					if (content[i].nodeType == 1 && content[i].nodeName == "TITLE") {
-						var div = document.createElement("DIV");
-						while (content[i].childNodes.length > 0) div.appendChild(content[i].childNodes[0]);
-						group.title = div;
-					} else
-						group.addElement(this.buildElement(content[i], group));
-				}
-			},
-			
-			buildItem: function(node, parent) {
-				var value = node.getAttribute("value");
-				var item = new lc.ui.Choice.Item(parent, value, node);
-				return item;
-			},
-			
-			_createElement: function(element, group) {
-				var elem = this.createHTMLFromElement(element, group);
-				var index = group.indexOfElement(element);
-				if (index >= group.element.childNodes.length)
-					group.element.appendChild(elem);
-				else
-					group.element.insertBefore(elem, group.element.childNodes[index]);
-			},
-			
-			createHTMLFromElement: function(element, group) {
-				if (lc.core.instanceOf(element, lc.ui.Choice.Group))
-					return this.createHTMLFromGroup(element, group);
-				if (lc.core.instanceOf(element, lc.ui.Choice.Item))
-					return this.createHTMLFromItem(element, group);
-				return this.createHTMLFromHTML(element, group);
-			},
-			
-			createHTMLFromGroup: function(group, parent) {
-				var div = document.createElement("DIV");
-				div.className = "lc-menu-group";
-				if (group.title) {
-					lc.css.addClass(group.title, "lc-menu-group-title");
-					div.appendChild(group.title);
-				}
-				lc.css.addClass(group.element, "lc-menu-group-content");
-				div.appendChild(group.element);
-				return div;
-			},
-			
-			createHTMLFromItem: function(item, group) {
+			$itemCreated: function(item) {
+				var wrapper = document.createElement("DIV");
+				wrapper.appendChild(item.element);
+				wrapper._menu_item_element = item.element;
+				lc.css.addClass(wrapper, "lc-menu-item-wrapper");
 				lc.css.addClass(item.element, "lc-menu-item");
+				item.element = wrapper;
+
+				if (lc.core.instanceOf(item, lc.ui.Choice.Item.Selectable)) {
+					if (wrapper._menu_item_element.hasAttribute("disabled") && wrapper._menu_item_element.getAttribute("disabled") != "false")
+						item.disabled = true;
+					if (wrapper._menu_item_element.hasAttribute("selected") && wrapper._menu_item_element.getAttribute("selected") != "false")
+						item.selected = true;
+				}
+				this.callExtensions("itemCreated", this, item);
+			},
+			
+			$itemAdded: function(item) {
+				this.callExtensions("beforeItemAdded", this, item);
+				var index = this.indexOf(item);
+				if (index >= this.container.childNodes.length)
+					this.container.appendChild(item.element);
+				else
+					this.container.insertBefore(item.element, this.getItemAt(index).element);
+				this.callExtensions("afterItemAdded", this, item);
+			},
+			
+			getItemOriginalElement: function(item) {
+				if (item.element._menu_item_element)
+					return item.element._menu_item_element;
 				return item.element;
 			},
 			
-			createHTMLFromHTML: function(html, group) {
-				if (html.nodeType == 1) {
-					lc.css.addClass(html, "lc-menu-not-item");
-				}
-				return html;
-			},
-			
 			destroy: function() {
-				// TODO
 				lc.ui.Component.prototype.destroy.call(this);
 				lc.ui.Choice.prototype.destroy.call(this);
 			}
@@ -103,7 +511,9 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 	lc.ui.Component.Registry.register(lc.ui.Menu);
 	
 	lc.core.extendClass("lc.ui.Menu.Extension", lc.ui.Component.Extension, function() {}, {
-		// TODO
+		itemCreated: function(menu, item) {},
+		beforeItemAdded: function(menu, item) {},
+		afterItemAdded: function(menu, item) {}
 	});
 });
 lc.app.onDefined("lc.ui.Panel", function() {
@@ -263,6 +673,297 @@ lc.app.onDefined("lc.ui.Component", function() {
 	});
 
 });
+lc.app.onDefined(["lc.ui.Popin.Extension"], function() {
+	lc.core.extendClass("lc.ui.Popin.AutoHide", [lc.ui.Popin.Extension],
+		function() {
+			this.ignoreClickOnElements = [];
+		}, {
+			extensionName: "auto-hide",
+			
+			ignoreClickOnElements: null,
+			
+			init: function(popin) {
+				this.popin = popin;
+				this.onautohide = new lc.async.Callback(this, function(event) {
+					var p = event.target;
+					while (p != null && p != document.body && p.parentNode != p) {
+						if (p == this.popin.container || this.ignoreClickOnElements.indexOf(p) >= 0)
+							return;
+						p = p.parentNode;
+					}
+					this.popin.hide();
+				});
+			},
+			
+			afterShow: function() {
+				lc.events.listen(document.body, "click", this.onautohide, true);
+			},
+			
+			afterHide: function() {
+				lc.events.unlisten(document.body, "click", this.onautohide, true);
+			},
+			
+			destroy: function() {
+				lc.events.unlisten(document.body, "click", this.onautohide, true);
+				this.onautohide = null;
+				this.ignoreClickOnElements = null;
+				this.popin = null;
+			}
+		}
+	);
+	
+	lc.Extension.Registry.register(lc.ui.Popin, lc.ui.Popin.AutoHide);
+});
+
+lc.app.onDefined(["lc.ui.Component"], function() {
+	
+	lc.core.extendClass("lc.ui.Popin", [lc.ui.Component, lc.Configurable], 
+		function(container, doNotConfigure, doNotBuild) {
+			var properties = {
+				attachVertical: {
+					types: ["enum"],
+					value: "bottom-start",
+					enumValues: ["top-start", "top-end", "middle", "bottom-start", "bottom-end"],
+					set: function(value, properties) {
+						if (!value) return;
+						if (value.toLowerCase() == 'top-start') value = 'top-start';
+						else if (value.toLowerCase() == 'top-end') value = 'top-end';
+						else if (value.toLowerCase() == 'middle') value = 'middle';
+						else if (value.toLowerCase() == 'bottom-start') value = 'bottom-start';
+						else if (value.toLowerCase() == 'bottom-end') value = 'bottom-end';
+						else {
+							lc.log.warn("lc.ui.Popin", "Unknown attachVertical value: " + value);
+							return;
+						}
+						if (properties.attachVertical.value == value) return;
+						properties.attachVertical.value = value;
+						if (this.isShown()) this._computePosition();
+					}
+				},
+				attachHorizontal: {
+					types: ["enum"],
+					value: "left-start",
+					enumValues: ["left-start", "left-end", "center", "right-start", "right-end"],
+					set: function(value, properties) {
+						if (!value) return;
+						if (value.toLowerCase() == 'left-start') value = 'left-start';
+						else if (value.toLowerCase() == 'left-end') value = 'left-end';
+						else if (value.toLowerCase() == 'center') value = 'center';
+						else if (value.toLowerCase() == 'right-start') value = 'right-start';
+						else if (value.toLowerCase() == 'right-end') value = 'right-end';
+						else {
+							lc.log.warn("lc.ui.Popin", "Unknown attachHorizontal value: " + value);
+							return;
+						}
+						if (properties.attachHorizontal.value == value) return;
+						properties.attachHorizontal.value = value;
+						if (this.isShown()) this._computePosition();
+					}
+				},
+				forceOrientation: {
+					types: ["boolean"],
+					value: false,
+					set: function(value, properties) {
+						if (typeof value !== 'boolean') return;
+						if (properties.forceOrientation.value === value) return;
+						properties.forceOrientation.value = value;
+						if (this.isShown()) this._computePosition();
+					}
+				}
+			};
+			lc.Configurable.call(this, properties);
+			
+			this._attachment = null;
+			this._shown = false;
+			
+			lc.ui.Component.call(this, container, doNotConfigure, doNotBuild);
+		}, {
+			componentName: "lc-pop-in",
+			
+			configure: function() {
+				this.registerEvents(["show", "hide"]);
+				this._recomputePosition = new lc.async.Callback(this, this._computePosition);
+			},
+			
+			build: function() {
+				document.body.appendChild(this.container);
+				if (this.container.hasAttribute("attach-to")) {
+					var elem = document.getElementById(this.container.getAttribute("attach-to"));
+					if (elem)
+						this.attachTo(elem);
+					else
+						lc.log.warn("lc.ui.Popin", "pop-in attached to element id '" + this.container.getAttribute("attach-to") + "' but it does not exist.");
+				}
+				if (this.container.hasAttribute("attach-orientation")) {
+					var s = this.container.getAttribute("attach-orientation");
+					var i = s.indexOf(',');
+					if (i < 0)
+						this.attachVertical = s.trim();
+					else {
+						var a = s.substring(0, i).trim();
+						if (a.length > 0) this.attachVertical = a;
+						a = s.substring(i + 1).trim();
+						if (a.length > 0) this.attachHorizontal = a;
+					}
+				}
+			},
+			
+			attachTo: function(element) {
+				this._attachment = element;
+			},
+			
+			show: function() {
+				if (this._shown) return;
+				var animation = lc.animation.animate(this.container);
+				this.callExtensions("beforeShow");
+				this._shown = true;
+				this._computePosition();
+				if (this._attachment) {
+					lc.events.listen(window, 'resize', this._recomputePosition);
+					lc.events.listen(window, 'scroll', this._recomputePosition);
+					var p = this._attachment.parentNode;
+					while (p && p != document.body) {
+						lc.events.listen(p, 'scroll', this._recomputePosition);
+						p = p.parentNode;
+					}
+				}
+				this.callExtensions("afterShow", animation);
+				this.trigger("show", animation);
+			},
+			
+			showAttached: function(attachedTo, verticalAttachment, horizontalAttachment) {
+				this.attachTo(attachedTo);
+				this.setAttachmentOrientation(verticalAttachment, horizontalAttachment);
+				this.show();
+			},
+			
+			hide: function() {
+				if (!this._shown) return;
+				var animation = lc.animation.animateReverse(this.container);
+				this.callExtensions("beforeHide");
+				this._shown = false;
+				animation.ondone(new lc.async.Callback(this, function() { this.container.style.display = "none"; }));
+				if (this._attachment) {
+					lc.events.unlisten(window, 'resize', this._recomputePosition);
+					lc.events.unlisten(window, 'scroll', this._recomputePosition);
+					var p = this._attachment.parentNode;
+					while (p && p != document.body) {
+						lc.events.unlisten(p, 'scroll', this._recomputePosition);
+						p = p.parentNode;
+					}
+				}
+				this.callExtensions("afterHide", animation);
+				this.trigger("hide", animation);
+			},
+			
+			isShown: function() {
+				return this._shown;
+			},
+			
+			isHidden: function() {
+				return !this._shown;
+			},
+			
+			toggleShow: function() {
+				if (this.isShown()) this.hide();
+				else this.show();
+			},
+			
+			_computePosition: function() {
+				this.container.style.maxHeight = "";
+				this.container.style.overflowY = "";
+				this.container.style.maxWidth = "";
+				this.container.style.overflowX = "";
+				this.container.style.display = "block";
+				//this.container.style.position = "absolute";
+				this.container.style.position = "fixed";
+
+				// check max width and height
+				if (this.container.offsetHeight > window.innerHeight * 0.9) {
+					this.container.style.maxHeight = Math.floor(window.innerHeight * 0.9) + 'px';
+					this.container.style.overflowY = "auto";
+				}
+				if (this.container.offsetWidth > window.innerWidth * 0.9) {
+					this.container.style.maxWidth = Math.floor(window.innerWidth * 0.9) + 'px';
+					this.container.style.overflowX = "auto";
+				}
+				
+				var pos;
+				if (this._attachment) {
+					//pos = lc.layout.getAbsolutePosition(this._attachment);
+					var rect = this._attachment.getBoundingClientRect();
+					pos = { x: rect.left, y: rect.top };
+					switch (this.attachVertical) {
+					case "top-start": break;
+					case "top-end": pos.y -= this.container.offsetHeight; break;
+					case "bottom-start": pos.y += this._attachment.offsetHeight; break;
+					case "bottom-end": pos.y += this._attachment.offsetHeight - this.container.offsetHeight; break;
+					case "middle": pos.y += (this._attachment.offsetHeight / 2) - (this.container.offsetHeight / 2); break;
+					}
+					switch (this.attachHorizontal) {
+					case "left-start": break;
+					case "left-end": pos.x -= this.container.offsetWidth; break;
+					case "right-start": pos.x += this._attachment.offsetWidth; break;
+					case "right-end": pos.x += this._attachment.offsetWidth - this.container.offsetWidth; break;
+					case "center": pos.x += (this._attachment.offsetWidth / 2) - (this.container.offsetWidth / 2); break;
+					}
+					if (!this.forceOrientation) {
+						if (pos.y + this.container.offsetHeight > window.innerHeight) {
+							if (window.innerHeight - pos.y >= 75) {
+								this.container.style.maxHeight = (window.innerHeight - pos.y) + 'px';
+								this.container.style.overflowY = "auto";
+							} else {
+								// force position on top
+								pos.y = rect.top - this.container.offsetHeight;
+							}
+						}
+						if (pos.y < 0) pos.y = 0;
+
+						if (pos.x + this.container.offsetWidth > window.innerWidth) {
+							if (window.innerWidth - pos.x >= 75) {
+								this.container.style.maxWidth = (window.innerWidth - pos.x) + 'px';
+								this.container.style.overflowX = "auto";
+							} else {
+								// force position on left
+								pos.x = rect.left - this.container.offsetWidth;
+							}
+						}
+						if (pos.x < 0) pos.x = 0;
+					}
+					
+					lc.css.removeClass(this.container, "lc-animate-down");
+					lc.css.removeClass(this.container, "lc-animate-up");
+					lc.css.removeClass(this.container, "lc-animate-left");
+					lc.css.removeClass(this.container, "lc-animate-right");
+					if (pos.y <= rect.top) lc.css.addClass(this.container, "lc-animate-up");
+					else lc.css.addClass(this.container, "lc-animate-down");
+					if (pos.x <= rect.left) lc.css.addClass(this.container, "lc-animate-left");
+					if (pos.x >= rect.left + this._attachment.offsetWidth) lc.css.addClass(this.container, "lc-animate-right");
+				} else
+					pos = { x: 0, y: 0 };
+				this.container.style.top = pos.y + "px";
+				this.container.style.left = pos.x + "px";
+				this.callExtensions("afterPosition", pos);
+			},
+			
+			destroy: function() {
+				if (this._shown) this.hide();
+				this._attachment = null;
+				lc.ui.Component.prototype.destroy.call(this);
+			}
+		}
+	);
+	
+	lc.ui.Component.Registry.register(lc.ui.Popin);
+	
+	lc.core.extendClass("lc.ui.Popin.Extension", lc.ui.Component.Extension, function() {}, {
+		beforeShow: function() {},
+		afterShow: function(animation) {},
+		beforeHide: function() {},
+		afterHide: function(animation) {},
+		afterPosition: function(position) {}
+	});
+});
 lc.app.onDefined("lc.ui.Component", function() {
 	
 	lc.core.extendClass("lc.ui.ProgressBar", [lc.ui.Component, lc.Configurable],
@@ -364,11 +1065,10 @@ lc.app.onDefined("lc.ui.Component", function() {
 				this.container.appendChild(this.barContainer);
 				this.container.appendChild(this.subTextContainer);
 				this.updateBar();
-				// TODO listen to resize
 			},
 			
 			updateBar: function() {
-				this.bar.style.width = (this.position * (this.barContainer.clientWidth - this.bar.clientLeft*2) / this.total)+'px';
+				this.bar.style.width = (this.position * 100 / this.total) + '%';
 				var percent = Math.floor(this.position * 100 / this.total);
 				this.percentText.innerHTML = percent + ' %';
 			},
@@ -391,126 +1091,215 @@ lc.app.onDefined("lc.ui.Component", function() {
 	});
 
 });
-lc.core.createClass("lc.ui.Choice.Group",
-	function(element, parent) {
+lc.core.createClass("lc.ui.Choice.Item",
+	function(parent, element) {
+		Object.defineProperty(this, "parent", {
+			writable: false,
+			value: parent
+		});
 		this.element = element;
-		Object.defineProperty(this, "parent", { value: parent, writable: false });
-		this._elements = [];
+		var c = this.getChoice();
+		if (!c) throw new Error("lc.ui.Choice.Item must be created in the scope of a lc.ui.Choice (its parent or ancestor must be a Choice)");
+		parent.$childCreated(this);
+		c.$itemCreated(this);
 	}, {
-		element: null,
 		parent: null,
-		title: null,
-		_elements: null,
+		element: null,
 		
-		getItem: function(value) {
-			for (var i = 0; i < this._elements.length; ++i) {
-				if (lc.core.instanceOf(this._elements[i], lc.ui.Choice.Item)) {
-					if (this._elements[i].value == value)
-						return this._elements[i];
-				} else if (lc.core.instanceOf(this._elements[i], lc.ui.Choice.Group)) {
-					var item = this._elements[i].getItem(value);
-					if (item) return item;
-				}
-			}
-			return undefined;
-		},
-		
-		getElements: function() {
-			return this._element.slice();
-		},
-		
-		indexOfElement: function(element) {
-			return this._elements.indexOf(element);
-		},
-		
-		getItems: function() {
-			var items = [];
-			this._getItems(items);
-			return items;
-		},
-		
-		_getItems: function(list) {
-			for (var i = 0; i < this._elements.length; ++i) {
-				if (lc.core.instanceOf(this._elements[i], lc.ui.Choice.Item)) {
-					list.push(this._elements[i]);
-				} else if (lc.core.instanceOf(this._elements[i], lc.ui.Choice.Group)) {
-					this._elements[i]._getItems(list);
-				}
-			}
-		},
-		
-		addElement: function(element, index) {
-			if (typeof index != 'number' || index >= this._elements.length)
-				this._elements.push(element);
-			else
-				this._elements.splice(index, 0, element);
-			var p = this;
-			do {
-				if (lc.core.instanceOf(p, lc.ui.Choice)) {
-					p._elementAdded(element, this);
-					break;
-				}
+		getChoice: function() {
+			var p = this.parent;
+			while (p != null && lc.core.instanceOf(p, lc.ui.Choice.ItemContainer)) {
+				if (lc.core.instanceOf(p, lc.ui.Choice))
+					return p;
 				p = p.parent;
-			} while (p);
-		},
-		
-		removeElement: function(element) {
-			var i = this._elements.indexOf(element);
-			if (i >= 0) {
-				this._elements.splice(i, 1);
-				return true;
-				var p = this;
-				do {
-					if (lc.core.instanceOf(p, lc.ui.Choice)) {
-						p._elementRemoved(element, this);
-						break;
-					}
-					p = p.parent;
-				} while (p);
-				return true;
-			} else {
-				for (var i = 0; i < this._elements.length; ++i)
-					if (lc.core.instanceOf(this._elements[i], lc.ui.Choice.Group)) {
-						if (this._elements[i].removeElement(element))
-							return true;
-					}
-				return false;
 			}
+			return null;
 		},
 		
 		destroy: function() {
-			if (this._elements === null) return;
-			for (var i = 0; i < this._elements.length; ++i)
-				if (typeof this._elements[i]["destroy"] === 'function')
-					this._elements[i].destroy();
-			this._elements = null;
+			if (this.parent) this.parent.removeItem(this);
 			this.parent = null;
+			if (this.element) lc.html.remove(this.element);
+			this.element = null;
 		}
-		
 	}
 );
 
-lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.Group, lc.events.Producer],
-	function(element, singleSelection) {
-		lc.ui.Choice.Group.call(this, element, null);
+lc.core.extendClass("lc.ui.Choice.Item.Selectable", [lc.ui.Choice.Item, lc.events.Producer],
+	function(parent, element) {
+		lc.events.Producer.call(this);
+		
+		Object.defineProperty(this, "selected", {
+			get: function() {
+				return this.getChoice().isSelected(this);
+			},
+			set: function(value) {
+				if (value) this.getChoice().selectItem(this);
+				else this.getChoice().unselectItem(this);
+			}
+		});
+
+		var dis = false;
+		Object.defineProperty(this, "disabled", {
+			get: function() {
+				return dis;
+			},
+			set: function(value) {
+				if (value) {
+					dis = true;
+					this.getChoice().unselectItem(this);
+					lc.css.addClass(this.element, "disabled");
+					this.trigger("disabledChanged", this);
+				} else {
+					dis = false;
+					lc.css.removeClass(this.element, "disabled");
+					this.trigger("disabledChanged", this);
+				}
+			}
+		});
+		
+		this.registerEvents(["selectedChanged", "disabledChanged"]);
+
+		lc.ui.Choice.Item.call(this, parent, element);
+		
+		lc.css.addClass(this.element, "selectable");
+		lc.events.listen(this.element, "click", new lc.async.Callback(this, function() {
+			if (this.disabled) return;
+			var c = this.getChoice();
+			if (c) c.toggleSelection(this);
+		}));
+		this.createListenersFromElement(element);
+	}, {
+		selected: false,
+		disabled: false,
+		
+		destroy: function() {
+			lc.events.Producer.prototype.destroy.call(this);
+			lc.ui.Choice.Item.prototype.destroy.call(this);
+		}
+	}
+);
+
+lc.core.extendClass("lc.ui.Choice.ItemContainer", [lc.events.Producer],
+	function() {
+		lc.events.Producer.call(this);
+		this._items = [];
+		this.registerEvents(["itemAdded", "itemRemoved"]);
+	}, {
+		_items: null,
+		
+		addItem: function(item, index) {
+			if (typeof index != 'number' || index >= this._items.length)
+				this._items.push(item);
+			else
+				this._items.splice(index, 0, item);
+			this.trigger("itemAdded", [this, item]);
+		},
+
+		getItems: function() {
+			return this._items.slice();
+		},
+		
+		indexOf: function(item) {
+			return this._items.indexOf(item);
+		},
+		
+		getItemAt: function(index) {
+			if (index < 0 || index >= this._items.length)
+				return null;
+			return this._items[index];
+		},
+
+		removeItem: function(item) {
+			var i = this._items.indexOf(item);
+			if (i < 0) return false;
+			this._items.splice(i, 1);
+			this.trigger("itemRemoved", [this, item]);
+			item.parent = null;
+			item.destroy();
+			return true;
+		},
+		
+		getLeaves: function(list) {
+			for (var i = 0; i < this._items.length; ++i) {
+				if (lc.core.instanceOf(this._items[i], lc.ui.Choice.ItemContainer))
+					this._items[i].getLeaves(list);
+				else
+					list.push(this._items[i]);
+			}
+		},
+		
+		$childCreated: function(item) {
+			// nothing by default
+		},
+		
+		buildFromContent: function(container) {
+			var content = [];
+			while (container.childNodes.length > 0)
+				content.push(container.removeChild(container.childNodes[0]));
+			for (var i = 0; i < content.length; ++i)
+				this.buildItem(content[i]);
+		},
+		
+		buildItem: function(element) {
+			// by default, create a simple item
+			var item = new lc.ui.Choice.Item(this, element);
+			this.addItem(item);
+		},
+		
+		destroy: function() {
+			if (this._items === null) return;
+			lc.events.Producer.prototype.destroy.call(this);
+			for (var i = 0; i < this._items.length; ++i)
+				this._items[i].destroy();
+			this._items = null;
+		}
+	}
+);
+
+lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.ItemContainer, lc.events.Producer],
+	function(singleSelection) {
+		lc.ui.Choice.ItemContainer.call(this);
 		lc.events.Producer.call(this);
 		this._singleSelection = singleSelection;
-		this.registerEvents(["selectionChanged", "elementAdded", "elementRemoved", "itemAdded", "itemRemoved"]);
+		this.registerEvents(["selectionChanged"]);
 		this._selection = [];
+		
+		Object.defineProperty(this, "singleSelection", {
+			get: function() { return this._singleSelection; },
+			set: function(single) {
+				if (this._singleSelection == single) return;
+				this._singleSelection = single;
+				if (single)
+					while (this._selection.length > 1)
+						this.unselect(this._selection[1]);
+			}
+		});
 	}, {
 		_selection: null,
 		_singleSelection: false,
 		
-		_select: function(item) {
+		_selectItem: function(item) {
 			if (!item) return false;
+			if (!lc.core.instanceOf(item, lc.ui.Choice.Item.Selectable)) return false;
 			if (item.selected) return false;
+			if (item.disabled) return false;
 			if (this._singleSelection)
 				while (this._selection.length > 0)
-					this.unselectItem(this._selection[0]);
+					this._unselectItem(this._selection[0]);
 			this._selection.push(item);
 			lc.css.addClass(item.element, "selected");
-			// TODO
-			item.trigger("selectionChanged", item);
+			item.trigger("selectedChanged", [this, item]);
+			return true;
+		},
+		
+		_unselectItem: function(item) {
+			if (!item) return false;
+			var i = this._selection.indexOf(item);
+			if (i < 0) return false;
+			this._selection.splice(i, 1);
+			lc.css.removeClass(item.element, "selected");
+			item.trigger("selectedChanged", [this, item]);
 			return true;
 		},
 		
@@ -521,14 +1310,6 @@ lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.Group, lc.events.Producer],
 			return changed;
 		},
 		
-		selectValue: function(value) {
-			return this.selectItem(this.getItem(value));
-		},
-
-		_selectValue: function(value) {
-			return this._selectItem(this.getItem(value));
-		},
-		
 		selectItems: function(items) {
 			var changed = false;
 			for (var i = 0; i < items.length; ++i)
@@ -537,32 +1318,11 @@ lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.Group, lc.events.Producer],
 				this.trigger("selectionChanged", this);
 			return changed;
 		},
-		
-		selectValues: function(values) {
-			var changed = false;
-			for (var i = 0; i < values.length; ++i)
-				changed |= this._selectValue(values[i]);
-			if (changed)
-				this.trigger("selectionChanged", this);
-			return changed;
-		},
-		
+
 		selectAll: function() {
 			if (this._singleSelection)
 				throw new Error("Cannot call selectAll on single selection choice");
 			return this.selectItems(this.getItems());
-		},
-		
-		_unselectItem: function(item) {
-			if (!item) return false;
-			if (!item.selected) return false;
-			var i = this._selection.indexOf(item);
-			if (i < 0) return false;
-			this._selection.splice(i, 1);
-			lc.css.removeClass(item.element, "selected");
-			// TODO
-			item.trigger("selectionChanged", item);
-			return true;
 		},
 		
 		unselectItem: function(item) {
@@ -570,14 +1330,6 @@ lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.Group, lc.events.Producer],
 			if (changed = this._unselectItem(item))
 				this.trigger("selectionChanged", this);
 			return changed;
-		},
-		
-		_unselectValue: function(value) {
-			return this._unselectItem(this.getItem(value));
-		},
-		
-		unselectValue: function(value) {
-			return this.unselectItem(this.getItem(value));
 		},
 		
 		unselectItems: function(items) {
@@ -588,18 +1340,16 @@ lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.Group, lc.events.Producer],
 				this.trigger("selectionChanged", this);
 			return changed;
 		},
-		
-		unselectValues: function(values) {
-			var changed = false;
-			for (var i = 0; i < values.length; ++i)
-				changed |= this._unselectValue(values[i]);
-			if (changed)
-				this.trigger("selectionChanged", this);
-			return changed;
-		},
-		
+
 		unselectAll: function() {
 			return this.unselectItems(this.getItems());
+		},
+		
+		toggleSelection: function(item) {
+			if (this.isSelected(item))
+				this.unselectItem(item);
+			else
+				this.selectItem(item);
 		},
 		
 		isSelected: function(item) {
@@ -610,73 +1360,14 @@ lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.Group, lc.events.Producer],
 			return this._selection.slice();
 		},
 		
-		_elementAdded: function(element, group) {
-			var items = [];
-			if (lc.core.instanceOf(element, lc.ui.Choice.Group)) {
-				element._getItems(items);
-			} else if (lc.core.instanceOf(element, lc.ui.Choice.Item)) {
-				items.push(element);
-			}
-			for (var i = 0; i < items.length; ++i)
-				items[i]._choice = this;
-			this.trigger("elementAdded", [element, group]);
-			for (var i = 0; i < items.length; ++i)
-				this.trigger("itemAdded", [items[i], group]);
-		},
-		
-		_elementRemoved: function(element, group) {
-			var items = [];
-			if (lc.core.instanceOf(element, lc.ui.Choice.Group)) {
-				element._getItems(items);
-			} else if (lc.core.instanceOf(element, lc.ui.Choice.Item)) {
-				items.push(element);
-			}
-			this.unselectItems(items);
-			this.trigger("elementRemoved", [element, group]);
-			for (var i = 0; i < items.length; ++i)
-				this.trigger("itemRemoved", [items[i], group]);
+		$itemCreated: function(item) {
+			// nothing by default
 		},
 		
 		destroy: function() {
-			lc.ui.Choice.Group.prototype.destroy.call(this);
+			lc.ui.Choice.ItemContainer.prototype.destroy.call(this);
 			lc.events.Producer.prototype.destroy.call(this);
 			this._selection = null;
-		}
-		
-	}
-);
-
-lc.core.extendClass("lc.ui.Choice.Item", [lc.events.Producer],
-	function(group, value, element) {
-		lc.events.Producer.call(this);
-		this.group = group;
-		if (typeof element === 'string') element = document.createTextNode(element);
-		this.element = element;
-		this._choice = null;
-		Object.defineProperty(this, "value", { value: value, writable: false });
-		Object.defineProperty(this, "selected", {
-			get: function() { return this._choice ? this._choice.isSelected(this) : false; },
-			set: function(value) {
-				if (!this._choice) throw new Error("An item must be attached to a choice to be selected");
-				if (value) this._choice.selectItem(this);
-				else this._choice.unselectItem(this);
-			}
-		});
-		this.registerEvents(["selectionChanged"]);
-	}, {
-		
-		group: null,
-		value: null,
-		element: null,
-		selected: false,
-		
-		destroy: function() {
-			lc.events.Producer.prototype.destroy.call(this);
-			if (this._choice) this._choice.removeElement(this);
-			this._choice = null;
-			if (this.element) lc.html.remove(this.element);
-			this.element = null;
-			delete this["value"];
 		}
 		
 	}
@@ -716,6 +1407,7 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.Context"], function()
 
 		}, {
 			componentName: null,
+			styles: null,
 			
 			_configured: false,
 			
@@ -737,6 +1429,7 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.Context"], function()
 			
 			performConfiguration: function() {
 				this.callExtensions("preConfigure", this);
+				this.createListenersFromElement(this.container);
 				this.configure();
 				this._configured = true;
 				this.callExtensions("postConfigure", this);
@@ -749,6 +1442,15 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.Context"], function()
 				this._built = true;
 				this.callExtensions("postBuild", this);
 				this.trigger("built", this);
+			},
+			
+			applyStyle: function(name) {
+				var classes = lc.css.getClasses(this.container);
+				for (var i = 0; i < classes.length; ++i)
+					if (classes[i].startsWith(this.componentName + "-style-"))
+						lc.css.removeClass(this.container, classes[i]);
+				if (name)
+					lc.css.addClass(this.container, this.componentName + "-style-" + name);
 			},
 			
 			destroy: function() {

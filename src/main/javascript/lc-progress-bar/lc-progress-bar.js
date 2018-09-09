@@ -99,11 +99,10 @@ lc.app.onDefined("lc.ui.Component", function() {
 				this.container.appendChild(this.barContainer);
 				this.container.appendChild(this.subTextContainer);
 				this.updateBar();
-				// TODO listen to resize
 			},
 			
 			updateBar: function() {
-				this.bar.style.width = (this.position * (this.barContainer.clientWidth - this.bar.clientLeft*2) / this.total)+'px';
+				this.bar.style.width = (this.position * 100 / this.total) + '%';
 				var percent = Math.floor(this.position * 100 / this.total);
 				this.percentText.innerHTML = percent + ' %';
 			},

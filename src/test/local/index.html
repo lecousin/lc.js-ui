@@ -6,6 +6,7 @@
 	<script type="text/javascript" src="../../../dist/lc-ui.js/lc-ui.min.js"></script>
 	<link rel="stylesheet" type="text/css" href="../../../dist/lc-ui.js/lc-ui.css">
 	<link rel="stylesheet" type="text/css" href="../../../dist/lc-ui.js/themes/classic/theme-classic.css">
+	<script type="text/javascript" src="../../../dist/lc-ui.js/themes/classic/theme-classic.min.js"></script>
 	<style type="text/css">
 		.componentTest {
 			display: flex;
@@ -18,12 +19,14 @@
 			flex: 1 1 100%;
 			margin: 5px;
 		}
-		.configComponent {
+		.componentTest>*:nth-child(2) {
 			flex: 1 1 100%;
 			align-self: stretch;
 			border-left: 1px solid black;
 			margin: 0px;
 			padding: 5px;
+		}
+		.configComponent {
 			display:flex;
 			flex-direction: row;
 		}
@@ -37,14 +40,36 @@
 </head>
 <body class="lc-theme-classic">
 
+<div>
+<script type="text/javascript">
+function setTheme(theme) {
+	var classes = lc.css.getClasses(document.body);
+	for (var i = 0; i < classes.length; ++i)
+		if (classes[i].startsWith("lc-theme-"))
+			lc.css.removeClass(document.body, classes[i]);
+	if (theme)
+		lc.css.addClass(document.body, "lc-theme-" + theme);
+}
+</script>
+<form>
+Theme:
+<input type="radio" name="theme" value="" onchange="if (this.checked) setTheme(this.value)"/> None
+<input type="radio" name="theme" value="classic" onchange="if (this.checked) setTheme(this.value)"/> Classic
+</form>
+</div>
+
 <table lc-dyn-template="configurationTable" class="configurationTable">
 		<tr><th colspan=2>Configurations</th></tr>
 		<tr lc-dyn-foreach="configName in Object.keys(configurable.configurableProperties)">
 			<td><lc-dyn>configName</lc-dyn></td>
 			<td>
 				<input lc-dyn-if="configurable.configurableProperties[configName].types.indexOf('boolean') >= 0" type="checkbox" lc-dyn-property-checked="configurable[configName]" lc-dyn-event-change="configurable[configName] = this.checked;"/>
-				<input lc-dyn-if="configurable.configurableProperties[configName].types.indexOf('integer') >= 0" type="integer" lc-dyn-property-value="configurable[configName]" lc-dyn-event-change="configurable[configName] = this.value;"/>
+				<input lc-dyn-if="configurable.configurableProperties[configName].types.indexOf('integer') >= 0" type="number" lc-dyn-property-value="configurable[configName]" lc-dyn-event-change="configurable[configName] = this.value;"/>
 				<input lc-dyn-if="configurable.configurableProperties[configName].types.indexOf('string') >= 0" type="text" lc-dyn-property-value="configurable[configName]" lc-dyn-event-change="configurable[configName] = this.value;"/>
+				<select lc-dyn-if="configurable.configurableProperties[configName].types.indexOf('enum') >= 0" lc-dyn-event-change="configurable[configName] = this.value;">
+					<option value=""></option>
+					<option lc-dyn-foreach="val in configurable.configurableProperties[configName].enumValues" lc-dyn-property-value="val" lc-dyn-property-label="val" lc-dyn-property-selected="configurable[configName] == val"></option>
+				</select>
 			</td>
 		</tr>
 </table>
@@ -65,6 +90,17 @@
 				</lc-dyn-apply-template>
 			</div>
 		</div>
+	</div>
+	<div>
+		<b>Styles</b><br/>
+		<form>
+		<div>
+			<input type="radio" name="style" value="" lc-dyn-event-change="if (this.checked) component.applyStyle(null);"/> None
+		</div>
+		<div lc-dyn-foreach="style in component.styles">
+			<input type="radio" name="style" lc-dyn-property-value="style" lc-dyn-event-change="if (this.checked) component.applyStyle(style);"/> <lc-dyn>style</lc-dyn>
+		</div>
+		</form>
 	</div>
 </div>
 
@@ -98,22 +134,67 @@
 </div>
 
 <div class="componentTest">
+	<div>
+		Pop-in:
+		<button id="popin-button" onclick="lc.Context.get(document.getElementById('popin'))['lc.ui.Component'].toggleShow();">Click me</button>
+		<lc-pop-in id="popin" attach-to="popin-button" attach-orientation="bottom-start,left-start" class="lc-pop-in-contextual">
+			This is the content of the pop-in.
+		</lc-pop-in>
+	</div>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">lc.Context.get(document.getElementById('popin'))['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
+
+<div class="componentTest">
+	<div>
+		Pop-in with scrolling:
+		<div style="width: 200px; height: 50px; overflow: auto">
+			Here is a div with scroll bars, to test how the pop-in is shown while scrolling.<br/>
+			<button id="popin-button2" onclick="lc.Context.get(document.getElementById('popin2'))['lc.ui.Component'].toggleShow();">Click me</button>
+			<lc-pop-in id="popin2" attach-to="popin-button2" attach-orientation="bottom-start,left-start" class="lc-pop-in-contextual">
+				This is the content of the pop-in inside a scrolled div.
+			</lc-pop-in>
+			And some text after the button.<br/>
+			bla bla<br/>
+			bla bla<br/>
+		</div>
+	</div>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">lc.Context.get(document.getElementById('popin2'))['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
+
+<div class="componentTest">
 
 	<div>
 		<div>Menu:</div>
 	
-		<lc-menu id="menu">
-			<div value="1">Option 1</div>
-			<div value="2">Option two</div>
-			<div not-item>Not an option</div>
-			<div item-group>
-				<title>A sub-menu</title>
-				<div value="s.1">Sub-option 1</div>
-				<div not-item>Not a sub-option</div>
-				<div value="s.2">Sub-option two</div>
-			</div>
-			<div value="last">Last option</div>
-		</lc-menu>
+		<div style="display: inline-block;">
+			<lc-menu id="menu" lc-menu-sub-menu>
+				<div>Option 1</div>
+				<div>Option two</div>
+				<div disabled>Disabled option</div>
+				<div not-selectable>Not an option</div>
+				<div sub-menu>
+					Sub-options here
+					<lc-menu lc-menu-sub-menu>
+						<div>Sub option 1</div>
+						<div sub-menu>
+							Another sub-menu
+							<lc-menu>
+								<div>Sub-sub 1</div>
+								<div>Sub-sub 2</div>
+							</lc-menu>
+						</div>
+						<div>Sub option 2</div>
+					</lc-menu>
+				</div>
+				<div on-selectedChanged="if (this.selected) alert('Last option selected');">Last option</div>
+			</lc-menu>
+		</div>
 	</div>
 
 	<lc-dyn-apply-template name="extensionsTemplate">
@@ -121,9 +202,48 @@
 	</lc-dyn-apply-template>
 </div>
 
+<div class="componentTest">
+
+	<div>
+		<div>Drop-down:</div>
+	
+		<lc-dropdown id="dropdown" lc-dyn-event-selectionChanged="">
+			<div value="1">Option 1</div>
+			<div value="2">Option two</div>
+			<div disabled value="disabled">Disabled option</div>
+			<div not-selectable>Not an option</div>
+			<div value="last">Last option</div>
+		</lc-dropdown>
+		<br/>
+		Selected value: <lc-dyn>lc.Context.get(document.getElementById('dropdown'))['lc.ui.Component'].value</lc-dyn>
+	</div>
+
+	<div style="display: flex; flex-direction: row;">
+		<div>
+			<b>Drop-down</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('dropdown'))['lc.ui.Component']</variable>
+			</lc-dyn-apply-template>
+		</div>
+		<div>
+			<b>Pop-in</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('dropdown'))['lc.ui.Component'].popin</variable>
+			</lc-dyn-apply-template>
+		</div>
+		<div>
+			<b>Menu</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('dropdown'))['lc.ui.Component'].menu</variable>
+			</lc-dyn-apply-template>
+		</div>
+	</div>
+</div>
+
 
 <script type="text/javascript">
-lc.log.setDefaultLevel(lc.log.Levels.TRACE);
+//lc.log.setDefaultLevel(lc.log.Levels.TRACE);
+//lc.log.setLevel("lc.Cache", lc.log.Levels.TRACE);
 lc.app.loaded();
 </script>
 </body>

@@ -1,123 +1,212 @@
-lc.core.createClass("lc.ui.Choice.Group",
-	function(element, parent) {
+lc.core.createClass("lc.ui.Choice.Item",
+	function(parent, element) {
+		Object.defineProperty(this, "parent", {
+			writable: false,
+			value: parent
+		});
 		this.element = element;
-		Object.defineProperty(this, "parent", { value: parent, writable: false });
-		this._elements = [];
+		var c = this.getChoice();
+		if (!c) throw new Error("lc.ui.Choice.Item must be created in the scope of a lc.ui.Choice (its parent or ancestor must be a Choice)");
+		parent.$childCreated(this);
+		c.$itemCreated(this);
 	}, {
-		element: null,
 		parent: null,
-		title: null,
-		_elements: null,
+		element: null,
 		
-		getItem: function(value) {
-			for (var i = 0; i < this._elements.length; ++i) {
-				if (lc.core.instanceOf(this._elements[i], lc.ui.Choice.Item)) {
-					if (this._elements[i].value == value)
-						return this._elements[i];
-				} else if (lc.core.instanceOf(this._elements[i], lc.ui.Choice.Group)) {
-					var item = this._elements[i].getItem(value);
-					if (item) return item;
-				}
-			}
-			return undefined;
-		},
-		
-		getElements: function() {
-			return this._element.slice();
-		},
-		
-		indexOfElement: function(element) {
-			return this._elements.indexOf(element);
-		},
-		
-		getItems: function() {
-			var items = [];
-			this._getItems(items);
-			return items;
-		},
-		
-		_getItems: function(list) {
-			for (var i = 0; i < this._elements.length; ++i) {
-				if (lc.core.instanceOf(this._elements[i], lc.ui.Choice.Item)) {
-					list.push(this._elements[i]);
-				} else if (lc.core.instanceOf(this._elements[i], lc.ui.Choice.Group)) {
-					this._elements[i]._getItems(list);
-				}
-			}
-		},
-		
-		addElement: function(element, index) {
-			if (typeof index != 'number' || index >= this._elements.length)
-				this._elements.push(element);
-			else
-				this._elements.splice(index, 0, element);
-			var p = this;
-			do {
-				if (lc.core.instanceOf(p, lc.ui.Choice)) {
-					p._elementAdded(element, this);
-					break;
-				}
+		getChoice: function() {
+			var p = this.parent;
+			while (p != null && lc.core.instanceOf(p, lc.ui.Choice.ItemContainer)) {
+				if (lc.core.instanceOf(p, lc.ui.Choice))
+					return p;
 				p = p.parent;
-			} while (p);
-		},
-		
-		removeElement: function(element) {
-			var i = this._elements.indexOf(element);
-			if (i >= 0) {
-				this._elements.splice(i, 1);
-				return true;
-				var p = this;
-				do {
-					if (lc.core.instanceOf(p, lc.ui.Choice)) {
-						p._elementRemoved(element, this);
-						break;
-					}
-					p = p.parent;
-				} while (p);
-				return true;
-			} else {
-				for (var i = 0; i < this._elements.length; ++i)
-					if (lc.core.instanceOf(this._elements[i], lc.ui.Choice.Group)) {
-						if (this._elements[i].removeElement(element))
-							return true;
-					}
-				return false;
 			}
+			return null;
 		},
 		
 		destroy: function() {
-			if (this._elements === null) return;
-			for (var i = 0; i < this._elements.length; ++i)
-				if (typeof this._elements[i]["destroy"] === 'function')
-					this._elements[i].destroy();
-			this._elements = null;
+			if (this.parent) this.parent.removeItem(this);
 			this.parent = null;
+			if (this.element) lc.html.remove(this.element);
+			this.element = null;
 		}
-		
 	}
 );
 
-lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.Group, lc.events.Producer],
-	function(element, singleSelection) {
-		lc.ui.Choice.Group.call(this, element, null);
+lc.core.extendClass("lc.ui.Choice.Item.Selectable", [lc.ui.Choice.Item, lc.events.Producer],
+	function(parent, element) {
+		lc.events.Producer.call(this);
+		
+		Object.defineProperty(this, "selected", {
+			get: function() {
+				return this.getChoice().isSelected(this);
+			},
+			set: function(value) {
+				if (value) this.getChoice().selectItem(this);
+				else this.getChoice().unselectItem(this);
+			}
+		});
+
+		var dis = false;
+		Object.defineProperty(this, "disabled", {
+			get: function() {
+				return dis;
+			},
+			set: function(value) {
+				if (value) {
+					dis = true;
+					this.getChoice().unselectItem(this);
+					lc.css.addClass(this.element, "disabled");
+					this.trigger("disabledChanged", this);
+				} else {
+					dis = false;
+					lc.css.removeClass(this.element, "disabled");
+					this.trigger("disabledChanged", this);
+				}
+			}
+		});
+		
+		this.registerEvents(["selectedChanged", "disabledChanged"]);
+
+		lc.ui.Choice.Item.call(this, parent, element);
+		
+		lc.css.addClass(this.element, "selectable");
+		lc.events.listen(this.element, "click", new lc.async.Callback(this, function() {
+			if (this.disabled) return;
+			var c = this.getChoice();
+			if (c) c.toggleSelection(this);
+		}));
+		this.createListenersFromElement(element);
+	}, {
+		selected: false,
+		disabled: false,
+		
+		destroy: function() {
+			lc.events.Producer.prototype.destroy.call(this);
+			lc.ui.Choice.Item.prototype.destroy.call(this);
+		}
+	}
+);
+
+lc.core.extendClass("lc.ui.Choice.ItemContainer", [lc.events.Producer],
+	function() {
+		lc.events.Producer.call(this);
+		this._items = [];
+		this.registerEvents(["itemAdded", "itemRemoved"]);
+	}, {
+		_items: null,
+		
+		addItem: function(item, index) {
+			if (typeof index != 'number' || index >= this._items.length)
+				this._items.push(item);
+			else
+				this._items.splice(index, 0, item);
+			this.trigger("itemAdded", [this, item]);
+		},
+
+		getItems: function() {
+			return this._items.slice();
+		},
+		
+		indexOf: function(item) {
+			return this._items.indexOf(item);
+		},
+		
+		getItemAt: function(index) {
+			if (index < 0 || index >= this._items.length)
+				return null;
+			return this._items[index];
+		},
+
+		removeItem: function(item) {
+			var i = this._items.indexOf(item);
+			if (i < 0) return false;
+			this._items.splice(i, 1);
+			this.trigger("itemRemoved", [this, item]);
+			item.parent = null;
+			item.destroy();
+			return true;
+		},
+		
+		getLeaves: function(list) {
+			for (var i = 0; i < this._items.length; ++i) {
+				if (lc.core.instanceOf(this._items[i], lc.ui.Choice.ItemContainer))
+					this._items[i].getLeaves(list);
+				else
+					list.push(this._items[i]);
+			}
+		},
+		
+		$childCreated: function(item) {
+			// nothing by default
+		},
+		
+		buildFromContent: function(container) {
+			var content = [];
+			while (container.childNodes.length > 0)
+				content.push(container.removeChild(container.childNodes[0]));
+			for (var i = 0; i < content.length; ++i)
+				this.buildItem(content[i]);
+		},
+		
+		buildItem: function(element) {
+			// by default, create a simple item
+			var item = new lc.ui.Choice.Item(this, element);
+			this.addItem(item);
+		},
+		
+		destroy: function() {
+			if (this._items === null) return;
+			lc.events.Producer.prototype.destroy.call(this);
+			for (var i = 0; i < this._items.length; ++i)
+				this._items[i].destroy();
+			this._items = null;
+		}
+	}
+);
+
+lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.ItemContainer, lc.events.Producer],
+	function(singleSelection) {
+		lc.ui.Choice.ItemContainer.call(this);
 		lc.events.Producer.call(this);
 		this._singleSelection = singleSelection;
-		this.registerEvents(["selectionChanged", "elementAdded", "elementRemoved", "itemAdded", "itemRemoved"]);
+		this.registerEvents(["selectionChanged"]);
 		this._selection = [];
+		
+		Object.defineProperty(this, "singleSelection", {
+			get: function() { return this._singleSelection; },
+			set: function(single) {
+				if (this._singleSelection == single) return;
+				this._singleSelection = single;
+				if (single)
+					while (this._selection.length > 1)
+						this.unselect(this._selection[1]);
+			}
+		});
 	}, {
 		_selection: null,
 		_singleSelection: false,
 		
-		_select: function(item) {
+		_selectItem: function(item) {
 			if (!item) return false;
+			if (!lc.core.instanceOf(item, lc.ui.Choice.Item.Selectable)) return false;
 			if (item.selected) return false;
+			if (item.disabled) return false;
 			if (this._singleSelection)
 				while (this._selection.length > 0)
-					this.unselectItem(this._selection[0]);
+					this._unselectItem(this._selection[0]);
 			this._selection.push(item);
 			lc.css.addClass(item.element, "selected");
-			// TODO
-			item.trigger("selectionChanged", item);
+			item.trigger("selectedChanged", [this, item]);
+			return true;
+		},
+		
+		_unselectItem: function(item) {
+			if (!item) return false;
+			var i = this._selection.indexOf(item);
+			if (i < 0) return false;
+			this._selection.splice(i, 1);
+			lc.css.removeClass(item.element, "selected");
+			item.trigger("selectedChanged", [this, item]);
 			return true;
 		},
 		
@@ -128,14 +217,6 @@ lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.Group, lc.events.Producer],
 			return changed;
 		},
 		
-		selectValue: function(value) {
-			return this.selectItem(this.getItem(value));
-		},
-
-		_selectValue: function(value) {
-			return this._selectItem(this.getItem(value));
-		},
-		
 		selectItems: function(items) {
 			var changed = false;
 			for (var i = 0; i < items.length; ++i)
@@ -144,32 +225,11 @@ lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.Group, lc.events.Producer],
 				this.trigger("selectionChanged", this);
 			return changed;
 		},
-		
-		selectValues: function(values) {
-			var changed = false;
-			for (var i = 0; i < values.length; ++i)
-				changed |= this._selectValue(values[i]);
-			if (changed)
-				this.trigger("selectionChanged", this);
-			return changed;
-		},
-		
+
 		selectAll: function() {
 			if (this._singleSelection)
 				throw new Error("Cannot call selectAll on single selection choice");
 			return this.selectItems(this.getItems());
-		},
-		
-		_unselectItem: function(item) {
-			if (!item) return false;
-			if (!item.selected) return false;
-			var i = this._selection.indexOf(item);
-			if (i < 0) return false;
-			this._selection.splice(i, 1);
-			lc.css.removeClass(item.element, "selected");
-			// TODO
-			item.trigger("selectionChanged", item);
-			return true;
 		},
 		
 		unselectItem: function(item) {
@@ -177,14 +237,6 @@ lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.Group, lc.events.Producer],
 			if (changed = this._unselectItem(item))
 				this.trigger("selectionChanged", this);
 			return changed;
-		},
-		
-		_unselectValue: function(value) {
-			return this._unselectItem(this.getItem(value));
-		},
-		
-		unselectValue: function(value) {
-			return this.unselectItem(this.getItem(value));
 		},
 		
 		unselectItems: function(items) {
@@ -195,18 +247,16 @@ lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.Group, lc.events.Producer],
 				this.trigger("selectionChanged", this);
 			return changed;
 		},
-		
-		unselectValues: function(values) {
-			var changed = false;
-			for (var i = 0; i < values.length; ++i)
-				changed |= this._unselectValue(values[i]);
-			if (changed)
-				this.trigger("selectionChanged", this);
-			return changed;
-		},
-		
+
 		unselectAll: function() {
 			return this.unselectItems(this.getItems());
+		},
+		
+		toggleSelection: function(item) {
+			if (this.isSelected(item))
+				this.unselectItem(item);
+			else
+				this.selectItem(item);
 		},
 		
 		isSelected: function(item) {
@@ -217,73 +267,14 @@ lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.Group, lc.events.Producer],
 			return this._selection.slice();
 		},
 		
-		_elementAdded: function(element, group) {
-			var items = [];
-			if (lc.core.instanceOf(element, lc.ui.Choice.Group)) {
-				element._getItems(items);
-			} else if (lc.core.instanceOf(element, lc.ui.Choice.Item)) {
-				items.push(element);
-			}
-			for (var i = 0; i < items.length; ++i)
-				items[i]._choice = this;
-			this.trigger("elementAdded", [element, group]);
-			for (var i = 0; i < items.length; ++i)
-				this.trigger("itemAdded", [items[i], group]);
-		},
-		
-		_elementRemoved: function(element, group) {
-			var items = [];
-			if (lc.core.instanceOf(element, lc.ui.Choice.Group)) {
-				element._getItems(items);
-			} else if (lc.core.instanceOf(element, lc.ui.Choice.Item)) {
-				items.push(element);
-			}
-			this.unselectItems(items);
-			this.trigger("elementRemoved", [element, group]);
-			for (var i = 0; i < items.length; ++i)
-				this.trigger("itemRemoved", [items[i], group]);
+		$itemCreated: function(item) {
+			// nothing by default
 		},
 		
 		destroy: function() {
-			lc.ui.Choice.Group.prototype.destroy.call(this);
+			lc.ui.Choice.ItemContainer.prototype.destroy.call(this);
 			lc.events.Producer.prototype.destroy.call(this);
 			this._selection = null;
-		}
-		
-	}
-);
-
-lc.core.extendClass("lc.ui.Choice.Item", [lc.events.Producer],
-	function(group, value, element) {
-		lc.events.Producer.call(this);
-		this.group = group;
-		if (typeof element === 'string') element = document.createTextNode(element);
-		this.element = element;
-		this._choice = null;
-		Object.defineProperty(this, "value", { value: value, writable: false });
-		Object.defineProperty(this, "selected", {
-			get: function() { return this._choice ? this._choice.isSelected(this) : false; },
-			set: function(value) {
-				if (!this._choice) throw new Error("An item must be attached to a choice to be selected");
-				if (value) this._choice.selectItem(this);
-				else this._choice.unselectItem(this);
-			}
-		});
-		this.registerEvents(["selectionChanged"]);
-	}, {
-		
-		group: null,
-		value: null,
-		element: null,
-		selected: false,
-		
-		destroy: function() {
-			lc.events.Producer.prototype.destroy.call(this);
-			if (this._choice) this._choice.removeElement(this);
-			this._choice = null;
-			if (this.element) lc.html.remove(this.element);
-			this.element = null;
-			delete this["value"];
 		}
 		
 	}

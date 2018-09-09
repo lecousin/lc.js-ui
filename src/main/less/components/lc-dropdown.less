@@ -1,0 +1,43 @@
+.lc-dropdown {
+	border: 1px solid #606060;
+	border-radius: 4px;
+	position: relative;
+	padding: 2px 20px 2px 5px;
+	
+	&:after {
+		content: '\2BC6';
+		position: absolute;
+		top: 0px;
+		height: 100%;
+		right: 0px;
+		width: 15px;
+		color: #808080;
+		border-top-right-radius: inherit;
+		border-bottom-right-radius: inherit;
+		//border-left: inherit;
+		//font-size: 14px;
+		font-family: arial;
+		display: flex;
+	    flex-direction: row;
+	    align-items: center;
+	    justify-content: center;
+	    line-height: 0px;
+
+		transition: transform;
+		transition-duration: 200ms;
+		transition-timing-function: ease-in-out;
+		transform: rotate(0deg);
+	}
+	
+	&.dropdown-open:after {
+		transform: rotate(180deg);
+	}
+	
+	&:hover {
+		border-color: #202020;
+		
+		&:after {
+			color: #202020;
+		}
+	}
+}

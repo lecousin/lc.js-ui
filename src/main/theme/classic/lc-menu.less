@@ -1,24 +1,45 @@
 .lc-menu {
 	
-	.lc-menu-item {
+	&>* {
 		padding: 1px 2px;
+	}
+	
+	&:not([class*=lc-menu-style-])>.lc-menu-item-wrapper {
+		&.selectable, &.clickable {
+			&:hover:not(.disabled) {
+				background-color: #B0C0E8;
+			}
+			&.selected, &.selected:hover {
+				background-color: #8090C0;
+				color: #FFFFFF;
+			}
+		}
 		
-		&:hover {
-			background-color: #B0C0E8;
+		&.lc-menu-sub-menu {
+			&:hover:not(.disabled) {
+				.lc-menu-sub-menu-arrow {
+					&:after {
+						color: white;
+					}
+				}
+			}
 		}
 	}
-	.lc-menu-group {
-		padding: 1px 2px;
-		
-		.lc-menu-group-title {
-			font-weight: bold;
-		}
-		.lc-menu-group-content {
-			margin-left: 10px;
+	
+	&.lc-menu-style-menu-bar {
+		>.lc-menu-item-wrapper {
+			&.selectable, &.clickable {
+				&:hover:not(.disabled) {
+					background-color: #F0F0F0;
+				}
+				&.selected, &.selected:hover {
+					background-color: #D0D0D0;
+				}
+			}
 		}
 	}
-	.lc-menu-not-item {
-		padding: 1px 2px;
-		font-style: italic;
+	
+	&.lc-menu-style-tab-folder {
+		
 	}
 }

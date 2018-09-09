@@ -1,0 +1,30 @@
+.lc-pop-in {
+	
+	&.lc-animate {
+		transition: opacity, transform;
+		transition-duration: 150ms;
+		transition-timing-function: ease-in-out;
+		
+		&.lc-animate-start {
+			opacity: 0;
+			transform: scale(0,0);
+			
+			&.lc-animate-down {
+				transform: scale(1, 0) translateY(-100%);
+
+				&.lc-animate-right {
+					transform: scale(0, 0) translate(-100%,-100%);
+				}
+			}
+			
+			&.lc-animate-right {
+				transform: scale(0, 1) translateX(-100%);
+			}
+			// TODO up and left
+		}
+		&.lc-animate-end {
+			opacity: 1;
+			transform: scale(1,1);
+		}
+	}
+}
