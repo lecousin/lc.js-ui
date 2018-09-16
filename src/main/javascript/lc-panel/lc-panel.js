@@ -27,7 +27,7 @@ lc.app.onDefined("lc.ui.Component", function() {
 				while (this.container.childNodes.length > 0) {
 					var e = this.container.removeChild(this.container.childNodes[0]);
 					if (e.nodeType != 1) continue;
-					if (e.nodeName == "TITLE") {
+					if (e.nodeName == "HEADER") {
 						while (e.childNodes.length > 0)
 							this.titleDiv.appendChild(e.removeChild(e.childNodes[0]));
 					} else if (e.nodeName == "CONTENT") {

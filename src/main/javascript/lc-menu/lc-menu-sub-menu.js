@@ -10,12 +10,11 @@ lc.app.onDefined(["lc.ui.Menu.Extension"], function() {
 				for (var i = 0; i < items.length; ++i)
 					this.beforeItemAdded(menu, items[i]);
 				
-				this._previousCreateItem = menu.createItem;
-				menu.createItem = function(element) {
+				menu.extensionOverridesMethod(this, "createItem", function(element) {
 					if (element.hasAttribute("sub-menu"))
 						element.setAttribute("not-selectable","true");
-					return this.getExtension(lc.ui.Menu.SubMenu)._previousCreateItem.call(this, element);
-				};
+					return this.callPreviousImplementation(this.getExtension(lc.ui.Menu.SubMenu), "createItem", [element]);
+				});
 			},
 			
 			_handleSubMenu: function(menu, item) {
@@ -78,8 +77,6 @@ lc.app.onDefined(["lc.ui.Menu.Extension"], function() {
 			},
 			
 			destroy: function(menu) {
-				menu.createItem = this._previousCreateItem;
-				this._previousCreateItem = null;
 				var items = menu.getItems();
 				for (var i = 0; i < items.length; ++i) {
 					var item = items[i];
@@ -91,7 +88,8 @@ lc.app.onDefined(["lc.ui.Menu.Extension"], function() {
 							item.subMenu.unlisten("selectionChanged", item._subMenuSelectionChanged);
 						item.subMenu.parentMenu = null;
 						item.subMenu = null;
-						item.subMenuPopin.destroy();
+						if (item.subMenuPopin)
+							item.subMenuPopin.destroy();
 						item.subMenuPopin = null;
 						lc.css.removeClass(item.element, "lc-menu-sub-menu");
 						lc.css.removeClass(item.element, "clickable");

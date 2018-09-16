@@ -1,0 +1,23 @@
+.lc-tabs {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	border-bottom-left-radius: inherit;
+	border-bottom-right-radius: inherit;
+	
+	>.lc-menu {
+		flex: none;
+		z-index: 2;
+	}
+	
+	>.lc-view {
+		flex: 1 1 100%;
+		overflow: auto;
+		border: 1px solid #808080;
+		border-bottom-left-radius: inherit;
+		border-bottom-right-radius: inherit;
+		position: relative;
+		top: -1px;
+		z-index: 1;
+	}
+}

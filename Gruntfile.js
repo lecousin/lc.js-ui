@@ -11,11 +11,11 @@ module.exports = function(grunt) {
 			},
 			dist: {
 				src: ['src/main/javascript/**/*.js'],
-				dest: 'dist/lc-ui.js/lc-ui.js',
+				dest: 'dist/lc-ui.js',
 			},
 			themes: {
 				src: ['src/main/theme/classic/**/*.js'],
-				dest: 'dist/lc-ui.js/themes/classic/theme-classic.js',
+				dest: 'dist/themes/classic/theme-classic.js',
 			}
 		},
 		uglify: {
@@ -24,8 +24,8 @@ module.exports = function(grunt) {
 			},
 			all: {
 				files: {
-					'dist/lc-ui.js/lc-ui.min.js': ['dist/lc-ui.js/lc-ui.js'],
-					"dist/lc-ui.js/themes/classic/theme-classic.min.js": ["dist/lc-ui.js/themes/classic/theme-classic.js"]
+					'dist/lc-ui.min.js': ['dist/lc-ui.js'],
+					"dist/themes/classic/theme-classic.min.js": ["dist/themes/classic/theme-classic.js"]
 				}
 			}
 		},
@@ -36,7 +36,7 @@ module.exports = function(grunt) {
 					sourceMap:true
 				},
 				files: {
-					'dist/lc-ui.js/lc-ui.css': ['src/main/javascript/**/*.less','src/main/less/default-style.less']
+					'dist/lc-ui.css': ['src/main/javascript/**/*.less','src/main/less/default-style.less']
 				}
 			},
 			themes: {
@@ -45,7 +45,7 @@ module.exports = function(grunt) {
 					sourceMap:true
 				},
 				files: {
-					'dist/lc-ui.js/themes/classic/theme-classic.css': 'src/main/theme/classic/theme.less'
+					'dist/themes/classic/theme-classic.css': 'src/main/theme/classic/theme.less'
 				}
 			}
 		},

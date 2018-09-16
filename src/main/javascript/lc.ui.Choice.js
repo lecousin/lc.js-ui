@@ -70,10 +70,11 @@ lc.core.extendClass("lc.ui.Choice.Item.Selectable", [lc.ui.Choice.Item, lc.event
 		lc.ui.Choice.Item.call(this, parent, element);
 		
 		lc.css.addClass(this.element, "selectable");
-		lc.events.listen(this.element, "click", new lc.async.Callback(this, function() {
+		lc.events.listen(this.element, "click", new lc.async.Callback(this, function(event) {
 			if (this.disabled) return;
 			var c = this.getChoice();
 			if (c) c.toggleSelection(this);
+			event.stopPropagation();
 		}));
 		this.createListenersFromElement(element);
 	}, {
@@ -115,6 +116,10 @@ lc.core.extendClass("lc.ui.Choice.ItemContainer", [lc.events.Producer],
 			if (index < 0 || index >= this._items.length)
 				return null;
 			return this._items[index];
+		},
+		
+		getNbItems: function() {
+			return this._items.length;
 		},
 
 		removeItem: function(item) {
@@ -179,7 +184,7 @@ lc.core.extendClass("lc.ui.Choice", [lc.ui.Choice.ItemContainer, lc.events.Produ
 				this._singleSelection = single;
 				if (single)
 					while (this._selection.length > 1)
-						this.unselect(this._selection[1]);
+						this.unselectItem(this._selection[1]);
 			}
 		});
 	}, {

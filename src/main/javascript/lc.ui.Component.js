@@ -32,7 +32,6 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.Context"], function()
 
 		}, {
 			componentName: null,
-			styles: null,
 			
 			_configured: false,
 			
@@ -70,12 +69,7 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.Context"], function()
 			},
 			
 			applyStyle: function(name) {
-				var classes = lc.css.getClasses(this.container);
-				for (var i = 0; i < classes.length; ++i)
-					if (classes[i].startsWith(this.componentName + "-style-"))
-						lc.css.removeClass(this.container, classes[i]);
-				if (name)
-					lc.css.addClass(this.container, this.componentName + "-style-" + name);
+				lc.ui.style.applyStyle(this, name);
 			},
 			
 			destroy: function() {

@@ -1,0 +1,28 @@
+.lc-loader {
+	
+	&.three-balls {
+		height: 100%;
+	    display: flex;
+	    flex-direction: row;
+	    align-items: center;
+	    justify-content: center;
+	
+		div {
+			width: 10px;
+			height: 10px;
+			background-color: #000000;
+			border-radius: 50%;
+    		margin: 0px 2px;
+			animation: scale1 1.5s infinite ease-in-out;
+			
+			&:nth-child(1) {
+				animation-delay: -0.30s;
+			}
+			&:nth-child(2) {
+				animation-delay: -0.15s;
+			}
+		}
+		
+	}
+	
+}

@@ -1,0 +1,39 @@
+.lc-tree {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	
+	.lc-tree-item {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+
+		>.lc-tree-item-title-container {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+
+			>.lc-tree-item-collapser {
+			}			
+
+			>.lc-tree-item-title {
+			}
+		}
+
+		>.lc-tree-item-content {
+			display: flex;
+			flex-direction: column;
+			align-items: stretch;
+		}
+		
+		&.collapsed {
+			
+			>.lc-tree-item-content {
+				display: none;
+			}
+			
+		}
+		
+	}
+	
+}

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script type="text/javascript" src="lc-core.js/lc-core.min.js"></script>
+	<!-- 
+	<script type="text/javascript" src="lc-dynamic-ui.js/lc-dynamic-ui.min.js"></script>
+	<script type="text/javascript" src="lc-ui.js/lc-ui.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="lc-ui.js/lc-ui.css">
+	<link rel="stylesheet" type="text/css" href="lc-ui.js/themes/classic/theme-classic.css">
+	<script type="text/javascript" src="lc-ui.js/themes/classic/theme-classic.min.js"></script>
+	 -->
+	<style type="text/css">
+		.componentTest {
+			display: flex;
+			flex-direction: row;
+			align-items: flex-start;
+			border: 1px solid black;
+			margin: 5px;
+		}
+		.componentTest>* {
+			flex: 1 1 100%;
+			margin: 5px;
+		}
+		.componentTest>*:nth-child(2) {
+			flex: 1 1 100%;
+			align-self: stretch;
+			border-left: 1px solid black;
+			margin: 0px;
+			padding: 5px;
+		}
+		.configComponent {
+			display:flex;
+			flex-direction: row;
+		}
+		.configComponent>* {
+			margin-right: 5px;
+		}
+		.configurationTable {
+			border: 1px solid #A0A0A0;
+		}
+	</style>
+</head>
+<body class="lc-theme-classic">
+
+<div>
+<script type="text/javascript">
+function setTheme(theme) {
+	var classes = lc.css.getClasses(document.body);
+	for (var i = 0; i < classes.length; ++i)
+		if (classes[i].startsWith("lc-theme-"))
+			lc.css.removeClass(document.body, classes[i]);
+	if (theme)
+		lc.css.addClass(document.body, "lc-theme-" + theme);
+}
+</script>
+<form>
+Theme:
+<input type="radio" name="theme" value="" onchange="if (this.checked) lc.ui.style.removeGlobalTheme();"/> None
+<span lc-dyn-foreach="t in lc.ui.style.getThemes()" >
+	<input type="radio" name="theme" lc-dyn-property-value="t" lc-dyn-event-change="if (this.checked) lc.ui.style.setGlobalTheme(t)" lc-dyn-property-checked="lc.ui.style.getGlobalTheme() == t"/>
+	<lc-dyn>t</lc-dyn>
+</span>
+</form>
+</div>
+
+<table lc-dyn-template="configurationTable" class="configurationTable">
+		<tr><th colspan=2>Configurations</th></tr>
+		<tr lc-dyn-foreach="configName in Object.keys(configurable.configurableProperties)">
+			<td><lc-dyn>configName</lc-dyn></td>
+			<td>
+				<input lc-dyn-if="configurable.configurableProperties[configName].types.indexOf('boolean') >= 0" type="checkbox" lc-dyn-property-checked="configurable[configName]" lc-dyn-event-change="configurable[configName] = this.checked;"/>
+				<input lc-dyn-if="configurable.configurableProperties[configName].types.indexOf('integer') >= 0" type="number" lc-dyn-property-value="configurable[configName]" lc-dyn-event-change="configurable[configName] = this.value;"/>
+				<input lc-dyn-if="configurable.configurableProperties[configName].types.indexOf('string') >= 0" type="text" lc-dyn-property-value="configurable[configName]" lc-dyn-event-change="configurable[configName] = this.value;"/>
+				<select lc-dyn-if="configurable.configurableProperties[configName].types.indexOf('enum') >= 0" lc-dyn-event-change="configurable[configName] = this.value;">
+					<option value=""></option>
+					<option lc-dyn-foreach="val in configurable.configurableProperties[configName].enumValues" lc-dyn-property-value="val" lc-dyn-property-label="val" lc-dyn-property-selected="configurable[configName] == val"></option>
+				</select>
+			</td>
+		</tr>
+</table>
+
+<div lc-dyn-template="extensionsTemplate" class="configComponent">
+	<div lc-dyn-if="lc.core.instanceOf(component, lc.Configurable)">
+		<lc-dyn-apply-template name="configurationTable">
+			<variable name="configurable">component</variable>
+		</lc-dyn-apply-template>
+	</div>
+	<div>
+		<b>Extensions</b><br/>
+		<div lc-dyn-foreach="ext in lc.Extension.Registry.getAvailableFor(component.constructor)">
+			<input type="checkbox" lc-dyn-property-checked="component.hasExtension(ext)" lc-dyn-event-change="if (this.checked) component.addExtension(ext); else component.removeExtension(ext);"/> <lc-dyn>ext.prototype.extensionName</lc-dyn>
+			<div lc-dyn-if="component.hasExtension(ext) && lc.core.instanceOf(component.getExtension(ext), lc.Configurable)">
+				<lc-dyn-apply-template name="configurationTable">
+					<variable name="configurable">component.getExtension(ext)</variable>
+				</lc-dyn-apply-template>
+			</div>
+		</div>
+	</div>
+	<div>
+		<b>Styles</b><br/>
+		<form>
+		<div>
+			<input type="radio" name="style" value="" lc-dyn-event-change="if (this.checked) lc.ui.style.removeAppliedStyle(component);"/> None
+		</div>
+		<div lc-dyn-foreach="style in lc.ui.style.getAvailableStyles(component)">
+			<input type="radio" name="style" lc-dyn-property-value="style" lc-dyn-property-checked="lc.ui.style.getAppliedStyle(component) == style" lc-dyn-event-change="if (this.checked) component.applyStyle(style);"/> <lc-dyn>style</lc-dyn>
+		</div>
+		</form>
+	</div>
+</div>
+
+<div class="componentTest">
+
+	<lc-panel lc-panel-collapsible id="panel">
+		<header>A panel</header>
+		<content>
+			<p>This is a beautiful panel</p>
+			<p>Let try the different available extensions</p>
+		</content>
+	</lc-panel>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">lc.Context.get(document.getElementById('panel'))['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
+
+<div class="componentTest">
+
+	<div>
+		<div>Progress Bar:</div>
+	
+		<lc-progress-bar id="progressbar" text="Doing something..." total="1000" position="128">
+		</lc-progress-bar>
+	</div>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">lc.Context.get(document.getElementById('progressbar'))['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
+
+<div class="componentTest">
+	<div>
+		Pop-in:
+		<button id="popin-button" onclick="lc.Context.get(document.getElementById('popin'))['lc.ui.Component'].toggleShow();">Click me</button>
+		<lc-pop-in id="popin" attach-to="popin-button" attach-orientation="bottom-start,left-start" class="lc-pop-in-contextual">
+			This is the content of the pop-in.
+		</lc-pop-in>
+	</div>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">lc.Context.get(document.getElementById('popin'))['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
+
+<div class="componentTest">
+	<div>
+		Pop-in with scrolling:
+		<div style="width: 200px; height: 50px; overflow: auto">
+			Here is a div with scroll bars, to test how the pop-in is shown while scrolling.<br/>
+			<button id="popin-button2" onclick="lc.Context.get(document.getElementById('popin2'))['lc.ui.Component'].toggleShow();">Click me</button>
+			<lc-pop-in id="popin2" attach-to="popin-button2" attach-orientation="bottom-start,left-start" class="lc-pop-in-contextual">
+				This is the content of the pop-in inside a scrolled div.
+			</lc-pop-in>
+			And some text after the button.<br/>
+			bla bla<br/>
+			bla bla<br/>
+		</div>
+	</div>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">lc.Context.get(document.getElementById('popin2'))['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
+
+<div class="componentTest">
+
+	<div>
+		<div>Menu:</div>
+	
+		<div style="display: inline-block;">
+			<lc-menu id="menu" lc-menu-sub-menu>
+				<div>Option 1</div>
+				<div>Option two</div>
+				<div disabled>Disabled option</div>
+				<div not-selectable>Not an option</div>
+				<div sub-menu>
+					Sub-options here
+					<lc-menu lc-menu-sub-menu>
+						<div>Sub option 1</div>
+						<div sub-menu>
+							Another sub-menu
+							<lc-menu>
+								<div>Sub-sub 1</div>
+								<div>Sub-sub 2</div>
+							</lc-menu>
+						</div>
+						<div>Sub option 2</div>
+					</lc-menu>
+				</div>
+				<div on-selectedChanged="if (this.selected) alert('Last option selected');">Last option</div>
+			</lc-menu>
+		</div>
+	</div>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">lc.Context.get(document.getElementById('menu'))['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
+
+<div class="componentTest">
+
+	<div>
+		<div>Drop-down:</div>
+	
+		<lc-dropdown id="dropdown" lc-dyn-event-selectionChanged="">
+			<div value="1">Option 1</div>
+			<div value="2">Option two</div>
+			<div disabled value="disabled">Disabled option</div>
+			<div not-selectable>Not an option</div>
+			<div value="last">Last option</div>
+		</lc-dropdown>
+		<br/>
+		Selected value: <lc-dyn>lc.Context.get(document.getElementById('dropdown'))['lc.ui.Component'].value</lc-dyn>
+	</div>
+
+	<div style="display: flex; flex-direction: row;">
+		<div>
+			<b>Drop-down</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('dropdown'))['lc.ui.Component']</variable>
+			</lc-dyn-apply-template>
+		</div>
+		<div>
+			<b>Pop-in</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('dropdown'))['lc.ui.Component'].popin</variable>
+			</lc-dyn-apply-template>
+		</div>
+		<div>
+			<b>Menu</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('dropdown'))['lc.ui.Component'].menu</variable>
+			</lc-dyn-apply-template>
+		</div>
+	</div>
+</div>
+
+<div class="componentTest">
+
+	<div>
+		<div>
+			View:
+			<button onclick="lc.Context.get(document.getElementById('view'))['lc.ui.Component'].showPage('page1');return false;">Page 1</button>
+			<button onclick="lc.Context.get(document.getElementById('view'))['lc.ui.Component'].showPage('page2');return false;">Page 2</button>
+			<button onclick="lc.Context.get(document.getElementById('view'))['lc.ui.Component'].showPage('page3');return false;">Page 3</button>
+		</div>
+		<lc-view id='view' style="border: 1px solid #808080;">
+			<div view-name="page1">This is page 1</div>
+			<div view-name="page2">This is page 2</div>
+			<div view-name="page3" view-type="url" view-url="pages/example.html"></div>
+		</lc-view>
+	</div>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">lc.Context.get(document.getElementById('view'))['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
+
+<div class="componentTest">
+
+	<div>
+		<div>
+			Tabs:
+		</div>
+		<lc-tabs id='tabs' style="height: 100px;">
+			<tab>
+				<header>Tab 1</header>
+				<view style="padding: 5px;">This is tab 1</view>
+			</tab>
+			<tab>
+				<header>Example</header>
+				<view view-type="url" view-url="pages/example.html" style="padding: 10px;"/>
+			</tab>
+		</lc-tabs>
+	</div>
+
+	<div style="display: flex; flex-direction: row;">
+		<div>
+			<b>Tabs</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('tabs'))['lc.ui.Component']</variable>
+			</lc-dyn-apply-template>
+		</div>
+		<div>
+			<b>Menu</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('tabs'))['lc.ui.Component'].menu</variable>
+			</lc-dyn-apply-template>
+		</div>
+		<div>
+			<b>View</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('tabs'))['lc.ui.Component'].view</variable>
+			</lc-dyn-apply-template>
+		</div>
+	</div>
+</div>
+
+<div class="componentTest">
+
+	<div>
+		<div>
+			Tree:
+		</div>
+		<lc-tree id='tree'>
+			<node>
+				Element 1
+				<node>Sub-element 1</node>
+				<node>Sub-element 2</node>
+			</node>
+			<node>
+				Element 2
+				<node>2.1</node>
+				<node>2.2</node>
+				<node>
+					2.3
+					<node>2.3.1</node>
+					<node>2.3.2</node>
+				</node>
+			</node>
+			<node>
+				Element 3
+			</node>
+			<node>
+				Element 4
+				<node>4.1</node>
+			</node>
+		</lc-tree>
+	</div>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">lc.Context.get(document.getElementById('tree'))['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
+
+<script type="text/javascript">
+//lc.log.setDefaultLevel(lc.log.Levels.TRACE);
+lc.log.setLevel("lc.ui.Component", lc.log.Levels.TRACE);
+//lc.app.loaded();
+lc.resources.loadInParallel([
+	"lc-dynamic-ui.js/lc-dynamic-ui.min.js",
+	"lc-ui.js/lc-ui.min.js",
+	"lc-ui.js/lc-ui.css",
+	"lc-ui.js/themes/classic/theme-classic.css",
+	"lc-ui.js/themes/classic/theme-classic.min.js"
+]).ondone(lc.app.loaded);
+</script>
+</body>
+</html>

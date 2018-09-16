@@ -11,6 +11,8 @@ lc.app.onDefined(["lc.ui.DropDown.Extension"], function() {
 					}
 				}
 			};
+			// TODO maxElements...
+			// TODO show select all
 			lc.Configurable.call(this, properties);
 		}, {
 			extensionName: "multiple",
@@ -18,8 +20,7 @@ lc.app.onDefined(["lc.ui.DropDown.Extension"], function() {
 			init: function(dropdown) {
 				this.dropdown = dropdown;
 				dropdown.menu.singleSelection = false;
-				this._previousSetContentFromSelection = dropdown.$setContentFromSelection;
-				dropdown.$setContentFromSelection = function() {
+				dropdown.extensionOverridesMethod(this, "$setContentFromSelection", function() {
 					var sel = this.menu.getSelection();
 					lc.html.empty(this.container);
 					if (sel.length == 0)
@@ -48,7 +49,7 @@ lc.app.onDefined(["lc.ui.DropDown.Extension"], function() {
 						}
 						this.container.appendChild(content);
 					}
-				};
+				});
 				
 				Object.defineProperty(dropdown, "values", {
 					get: function() {
@@ -65,14 +66,14 @@ lc.app.onDefined(["lc.ui.DropDown.Extension"], function() {
 							if (values.indexOf(this.getItemValue(items[i])) >= 0)
 								sel.push(items[i]);
 						this.menu.selectItems(sel);
-					}
+					},
+					configurable: true // to be able to delete it
 				});
 			},
 			
 			destroy: function(dropdown) {
 				this.dropdown = null;
 				dropdown.menu.singleSelection = true;
-				dropdown.$setContentFromSelection = this._previousSetContentFromSelection;
 				delete dropdown["values"];
 			}
 		}

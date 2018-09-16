@@ -1,3 +1,5 @@
+@import "colors.less";
+
 .lc-menu {
 	
 	&>* {
@@ -7,11 +9,10 @@
 	&:not([class*=lc-menu-style-])>.lc-menu-item-wrapper {
 		&.selectable, &.clickable {
 			&:hover:not(.disabled) {
-				background-color: #B0C0E8;
+				.choice-hover();
 			}
 			&.selected, &.selected:hover {
-				background-color: #8090C0;
-				color: #FFFFFF;
+				.choice-selected();
 			}
 		}
 		

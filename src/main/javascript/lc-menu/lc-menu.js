@@ -4,7 +4,6 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 		function(container, doNotConfigure, doNotBuild) {
 			lc.ui.Choice.call(this, container, true);
 			lc.ui.Component.call(this, container, doNotConfigure, doNotBuild);
-			this.styles = ["menu-bar", "tab-folder"];
 		}, {
 			componentName: "lc-menu",
 			
@@ -20,6 +19,7 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 				if (element.nodeType != 1) return;
 				var item = this.createItem(element);
 				this.addItem(item);
+				return item;
 			},
 			
 			createItem: function(element) {
@@ -74,5 +74,10 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 		itemCreated: function(menu, item) {},
 		beforeItemAdded: function(menu, item) {},
 		afterItemAdded: function(menu, item) {}
+	});
+	
+	lc.app.onDefined("lc.ui.style", function() {
+		lc.ui.style.registerComponentStyle(lc.ui.Menu, "menu-bar");
+		lc.ui.style.registerComponentStyle(lc.ui.Menu, "tab-folder");
 	});
 });
