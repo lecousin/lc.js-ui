@@ -8,11 +8,20 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 			componentName: "lc-menu",
 			
 			configure: function() {
-				this.on("itemAdded", function(that, item) { that.$itemAdded(item); });
 			},
 			
 			build: function() {
-				this.buildFromContent(this.container);
+				this._dynContent = new lc.ui.DynamicContentBuilder(this.container);
+				this._dynContent.on("nodeAdded", new lc.async.Callback(this, function(node) {
+					var item = this.buildItem(node.cloneNode(true));
+					if (item) node._item = item;
+				}));
+				this._dynContent.on("nodeRemoved", new lc.async.Callback(this, function(node) {
+					if (!node._item) return;
+					this.removeItem(node._item);
+					node._item = null;
+				}));
+				this._dynContent.start();
 			},
 			
 			buildItem: function(element) {
@@ -28,40 +37,17 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 				return new lc.ui.Choice.Item(this, element);
 			},
 			
-			$itemCreated: function(item) {
-				var wrapper = document.createElement("DIV");
-				wrapper.appendChild(item.element);
-				wrapper._menu_item_element = item.element;
-				lc.css.addClass(wrapper, "lc-menu-item-wrapper");
-				lc.css.addClass(item.element, "lc-menu-item");
-				item.element = wrapper;
-
-				if (lc.core.instanceOf(item, lc.ui.Choice.Item.Selectable)) {
-					if (wrapper._menu_item_element.hasAttribute("disabled") && wrapper._menu_item_element.getAttribute("disabled") != "false")
-						item.disabled = true;
-					if (wrapper._menu_item_element.hasAttribute("selected") && wrapper._menu_item_element.getAttribute("selected") != "false")
-						item.selected = true;
-				}
-				this.callExtensions("itemCreated", this, item);
-			},
-			
-			$itemAdded: function(item) {
-				this.callExtensions("beforeItemAdded", this, item);
+			$addItemElement: function(item) {
 				var index = this.indexOf(item);
 				if (index >= this.container.childNodes.length)
 					this.container.appendChild(item.element);
 				else
 					this.container.insertBefore(item.element, this.getItemAt(index).element);
-				this.callExtensions("afterItemAdded", this, item);
-			},
-			
-			getItemOriginalElement: function(item) {
-				if (item.element._menu_item_element)
-					return item.element._menu_item_element;
-				return item.element;
 			},
 			
 			destroy: function() {
+				this._dynContent.destroy();
+				this._dynContent = null;
 				lc.ui.Component.prototype.destroy.call(this);
 				lc.ui.Choice.prototype.destroy.call(this);
 			}
@@ -70,10 +56,7 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 	
 	lc.ui.Component.Registry.register(lc.ui.Menu);
 	
-	lc.core.extendClass("lc.ui.Menu.Extension", lc.ui.Component.Extension, function() {}, {
-		itemCreated: function(menu, item) {},
-		beforeItemAdded: function(menu, item) {},
-		afterItemAdded: function(menu, item) {}
+	lc.core.extendClass("lc.ui.Menu.Extension", [lc.ui.Component.Extension, lc.ui.Choice.Extension], function() {}, {
 	});
 	
 	lc.app.onDefined("lc.ui.style", function() {

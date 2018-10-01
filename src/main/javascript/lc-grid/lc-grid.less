@@ -1,0 +1,48 @@
+.lc-grid {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+
+	.lc-grid-header {
+		flex: none;
+		display: flex;
+		flex-direction: column;
+	}
+	
+	.lc-grid-content {
+		flex: 1 1 100%;
+		overflow-y: auto;
+	}
+	
+	.lc-grid-footer {
+		flex: none;
+		display: flex;
+		flex-direction: column;
+	}
+	
+	.lc-grid-row-container {
+		display: flex;
+		flex-direction: row;
+		position: relative;
+		
+		.lc-grid-pinned-part {
+			flex: none;
+			position: relative;
+		}
+		
+		.lc-grid-scrollable-part {
+			flex: 1 1 100%;
+			position: relative;
+			overflow-x: hidden;
+		}
+		
+		.lc-grid-cell {
+			overflow: hidden;
+			position: absolute;
+			top: 0px;
+			bottom: 0px;
+			box-sizing: border-box;
+		}			
+	}
+	
+}

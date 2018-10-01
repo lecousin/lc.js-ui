@@ -1,0 +1,1 @@
+tooltip resizer=Faites glissez pour modifier la largeur de la colonne, ou double-cliquez pour une largeur qui s'adapte au contenu

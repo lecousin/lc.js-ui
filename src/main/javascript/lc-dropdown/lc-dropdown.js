@@ -1,4 +1,4 @@
-lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
+lc.app.onDefined(["lc.ui.Component"], function() {
 	
 	lc.core.extendClass("lc.ui.DropDown", [lc.ui.Component], 
 		function(container, doNotConfigure, doNotBuild) {
@@ -25,13 +25,17 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 					lc.css.addClass(this.popin.container, c);
 			}
 			
+			this._value = undefined;
 			Object.defineProperty(this, "value", {
 				get: function() {
-					var sel = this.menu.getSelection();
-					if (sel.length == 0) return undefined;
-					return this.getItemValue(sel[0]);
+					return this._value;
 				},
 				set: function(value) {
+					this._value = value;
+					if (value === undefined) {
+						this.menu.unselectAll();
+						return;
+					}
 					var items = this.menu.getItems();
 					var item = null;
 					for (var i = 0; i < items.length; ++i)
@@ -39,10 +43,8 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 							item = items[i];
 							break;
 						}
-					if (!item)
-						lc.log.warn("lc.ui.DropDown", "Set value to " + value + " but no item has this value. Ignored.");
-					else
-						this.menu.select(item);
+					if (item)
+						this.menu.selectItem(item);
 				}
 			});
 			
@@ -53,7 +55,7 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 			$emptySelection: null,
 			
 			configure: function() {
-				this.registerEvents(["selectionChanged"]);
+				this.registerEvents(["selectionChanged", "change"]);
 				// TODO if name attribute, create a hidden input with this select value
 				
 				this.popin.getExtension(lc.ui.Popin.AutoHide).ignoreClickOnElements.push(this.container);
@@ -61,6 +63,8 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 				this._width = 20;
 				this._height = 15;
 				this.$emptySelection = document.createElement("DIV");
+				this.$emptySelection.appendChild(document.createTextNode("x"));
+				this.$emptySelection.style.color = "transparent";
 
 				this.menu.performConfiguration();
 				this.popin.performConfiguration();
@@ -88,14 +92,21 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 				this.menu.performBuild();
 				this.popin.performBuild();
 				this._computeSize();
-				this._menuItemSelected();
+				this.$setContentFromSelection();
+				if (this.container.childNodes.length > 0) {
+					this.container.childNodes[0].style.minWidth = this._width + 'px';
+					this.container.childNodes[0].style.minHeight = this._height + 'px';
+				}
+				if (this._value) this.value = this._value;
 			},
 			
 			getItemValue: function(item) {
 				if (typeof item.value !== 'undefined') return item.value;
-				var e = this.menu.getItemOriginalElement(item);
+				var e = item.itemElement;
 				if (e.hasAttribute("value"))
 					return e.getAttribute("value");
+				if (typeof e["value"] !== 'undefined')
+					return e.value;
 				return undefined;
 			},
 			
@@ -105,7 +116,10 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 					this.container.childNodes[0].style.minWidth = this._width + 'px';
 					this.container.childNodes[0].style.minHeight = this._height + 'px';
 				}
+				var sel = this.menu.getSelection();
+				this._value = sel.length == 0 ? undefined : this.getItemValue(sel[0]);
 				this.trigger("selectionChanged");
+				this.trigger("change");
 			},
 			
 			$setContentFromSelection: function() {
@@ -113,7 +127,7 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 				var item = sel.length > 0 ? sel[0] : null;
 				lc.html.empty(this.container);
 				if (item) {
-					var element = this.menu.getItemOriginalElement(item).cloneNode(true);
+					var element = item.itemElement.cloneNode(true);
 					this.container.appendChild(element);
 					this.popin.hide();
 				} else {
@@ -129,16 +143,19 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 					this.container.childNodes[0].style.minWidth = this._width + 'px';
 					this.container.childNodes[0].style.minHeight = this._height + 'px';
 				}
+				if (this._value && this._value == this.getItemValue(item))
+					item.selected = true;
 			},
 			
 			_computeItemSize: function(item) {
-				var e = this.menu.getItemOriginalElement(item).cloneNode(true);
+				var e = item.itemElement.cloneNode(true);
 				e.style.position = "fixed";
 				e.style.top = "-10000px";
 				e.style.left = "-10000px";
 				document.body.appendChild(e);
-				item.element.__select_menu_item_width = e.offsetWidth;
-				item.element.__select_menu_item_height = e.offsetHeight;
+				var r = e.getBoundingClientRect();
+				item.element.__select_menu_item_width = r.width;
+				item.element.__select_menu_item_height = r.height;
 				document.body.removeChild(e);
 			},
 			

@@ -1,0 +1,6 @@
+column=colonne
+columns=colonnes
+row=ligne
+rows=lignes
+cell=cellule
+cells=cellules

@@ -111,12 +111,13 @@ Theme:
 
 <div class="componentTest">
 
-	<lc-panel lc-panel-collapsible id="panel">
+	<lc-panel lc-panel-collapsible lc-panel-footer id="panel">
 		<header>A panel</header>
 		<content>
 			<p>This is a beautiful panel</p>
 			<p>Let try the different available extensions</p>
 		</content>
+		<footer>This is the footer</footer>
 	</lc-panel>
 
 	<lc-dyn-apply-template name="extensionsTemplate">
@@ -343,6 +344,61 @@ Theme:
 	</lc-dyn-apply-template>
 </div>
 
+<div class="componentTest">
+
+	<div>
+		<div>
+			Dialog:
+		</div>
+		<lc-dialog id='dialog'>
+			<header>A dialog</header>
+			<content>
+				<p>This is a beautiful dialog</p>
+				<p>Resize the textarea to check behaviour while resizing the dialog content</p>
+				<textarea></textarea>
+			</content>
+		</lc-dialog>
+		<button onclick="lc.Context.get(document.getElementById('dialog'))['lc.ui.Component'].show();">Show me</button>
+	</div>
+
+	<div style="display: flex; flex-direction: row;">
+		<div>
+			<b>Dialog</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('dialog'))['lc.ui.Component']</variable>
+			</lc-dyn-apply-template>
+		</div>
+		<div>
+			<b>Panel</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('dialog'))['lc.ui.Component'].panel</variable>
+			</lc-dyn-apply-template>
+		</div>
+	</div>
+</div>
+
+<div class="componentTest">
+
+	<div>
+		<div>
+			Grid:
+		</div>
+		<lc-grid id='grid' data="grid-data.json">
+			<column id='firstName' field='firstName'>
+				<header>First Name</header>
+			</column>
+			<column id='lastName'field='lastName'>
+				<header>Last Name</header>
+			</column>
+			<column id='nationality' title='Nationality' field='nationality'></column>
+			<column id='company' title='Company' field='company'></column>
+		</lc-grid>
+	</div>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">lc.Context.get(document.getElementById('grid'))['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
 <script type="text/javascript">
 //lc.log.setDefaultLevel(lc.log.Levels.TRACE);
 lc.log.setLevel("lc.ui.Component", lc.log.Levels.TRACE);

@@ -64,11 +64,14 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 			componentName: "lc-pop-in",
 			
 			configure: function() {
+				this.container.style.display = "none";
 				this.registerEvents(["show", "hide"]);
 				this._recomputePosition = new lc.async.Callback(this, this._computePosition);
 			},
 			
 			build: function() {
+				// keep location before to move it to the body
+				lc.ui.navigation.setUrl(this.container, lc.ui.navigation.getUrl(this.container));
 				document.body.appendChild(this.container);
 				if (this.container.hasAttribute("attach-to")) {
 					var elem = document.getElementById(this.container.getAttribute("attach-to"));
@@ -125,7 +128,7 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 				var animation = lc.animation.animateReverse(this.container);
 				this.callExtensions("beforeHide");
 				this._shown = false;
-				animation.ondone(new lc.async.Callback(this, function() { this.container.style.display = "none"; }));
+				animation.ondone(new lc.async.Callback(this, function() { if (this.container) this.container.style.display = "none"; }));
 				if (this._attachment) {
 					lc.events.unlisten(window, 'resize', this._recomputePosition);
 					lc.events.unlisten(window, 'scroll', this._recomputePosition);
@@ -157,8 +160,7 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 				this.container.style.overflowY = "";
 				this.container.style.maxWidth = "";
 				this.container.style.overflowX = "";
-				this.container.style.display = "block";
-				//this.container.style.position = "absolute";
+				this.container.style.display = "";
 				this.container.style.position = "fixed";
 
 				// check max width and height
@@ -171,9 +173,8 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 					this.container.style.overflowX = "auto";
 				}
 				
-				var pos;
 				if (this._attachment) {
-					//pos = lc.layout.getAbsolutePosition(this._attachment);
+					var pos;
 					var rect = this._attachment.getBoundingClientRect();
 					pos = { x: rect.left, y: rect.top };
 					switch (this.attachVertical) {
@@ -222,11 +223,15 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 					else lc.css.addClass(this.container, "lc-animate-down");
 					if (pos.x <= rect.left) lc.css.addClass(this.container, "lc-animate-left");
 					if (pos.x >= rect.left + this._attachment.offsetWidth) lc.css.addClass(this.container, "lc-animate-right");
-				} else
-					pos = { x: 0, y: 0 };
-				this.container.style.top = pos.y + "px";
-				this.container.style.left = pos.x + "px";
-				this.callExtensions("afterPosition", pos);
+					this.container.style.top = pos.y + "px";
+					this.container.style.left = pos.x + "px";
+				} else {
+					// center on page
+					this.container.style.top = "50%";
+					this.container.style.left = "50%";
+					this.container.style.transform = "translateX(-50%) translateY(-50%)";
+				}
+				this.callExtensions("afterPosition");
 			},
 			
 			destroy: function() {
@@ -244,6 +249,6 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 		afterShow: function(animation) {},
 		beforeHide: function() {},
 		afterHide: function(animation) {},
-		afterPosition: function(position) {}
+		afterPosition: function() {}
 	});
 });

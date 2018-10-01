@@ -1,4 +1,4 @@
-lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
+lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice", "lc.ui.Choice.Item.Selectable", "lc.ui.Choice.ItemContainer"], function() {
 	
 	lc.core.extendClass("lc.ui.Tree", [lc.ui.Component, lc.ui.Choice],
 		function(container, doNotConfigure, doNotBuild) {
@@ -9,8 +9,6 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 			
 			configure: function() {
 				this.registerEvents(["itemExpanded", "itemCollapsed"]);
-				this.on("itemAdded", function(that, item) { that.$itemAdded(item); });
-				this.on("itemRemoved", function(that, item) { that.$itemRemoved(item); });
 			},
 			
 			build: function() {
@@ -47,18 +45,22 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 				return item;
 			},
 			
-			$itemAdded: function(item) {
-				this.callExtensions("beforeItemAdded", item);
-				var index = this.indexOf(item);
-				if (index >= this.container.childNodes.length)
-					this.container.appendChild(item.element);
+			$addItemElement: function(item) {
+				var index = item.parent.indexOf(item);
+				var container = item.parent === this ? this.container : item.parent.itemContent;
+				if (index >= container.childNodes.length)
+					container.appendChild(item.element);
 				else
-					this.container.insertBefore(item.element, this.getItemAt(index).element);
-				this.callExtensions("afterItemAdded", item);
+					container.insertBefore(item.element, item.parent.getItemAt(index).element);
+				if (item.parent !== this)
+					lc.css.addClass(item.parent.element, "has-children");
 			},
 			
 			$itemRemoved: function(item) {
-				this.callExtensions("itemRemoved", item);
+				if (item.parent !== this)
+					if (item.parent.getNbItems() == 0)
+						lc.css.removeClass(item.parent.element, "has-children");
+				lc.ui.Choice.prototype.$itemRemoved.call(this, item);
 			}
 		}
 	);
@@ -67,32 +69,30 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 	
 	lc.core.extendClass("lc.ui.Tree.Item", [lc.ui.Choice.Item.Selectable, lc.ui.Choice.ItemContainer],
 		function(parent, element) {
-			this.itemTitle = element;
-			lc.css.addClass(this.itemTitle, "lc-tree-item-title");
+			lc.ui.Choice.Item.Selectable.call(this, parent, element);
 			
 			this.itemTitleContainer = document.createElement("DIV");
 			this.itemTitleContainer.className = "lc-tree-item-title-container";
-			this.itemTitleContainer.appendChild(this.itemTitle);
+			this.itemTitleContainer.appendChild(this.itemElement);
+			this.element.appendChild(this.itemTitleContainer);
 			
 			this.collapserDiv = document.createElement("DIV");
 			this.collapserDiv.className = "lc-tree-item-collapser";
-			this.itemTitleContainer.insertBefore(this.collapserDiv, this.itemTitle);
+			this.collapserDiv.priority = Number.MAX_VALUE;
+			this.itemTitleContainer.insertBefore(this.collapserDiv, this.itemElement);
 			
 			this.itemContent = document.createElement("DIV");
 			this.itemContent.className = "lc-tree-item-content";
+			this.element.appendChild(this.itemContent);
 			
-			element = document.createElement("DIV");
-			element.appendChild(this.itemTitleContainer);
-			element.appendChild(this.itemContent);
-			element.className = "lc-tree-item collapsed";
+			lc.css.addClass(this.element, "collapsed");
 			
-			lc.ui.Choice.Item.Selectable.call(this, parent, element);
 			lc.ui.Choice.ItemContainer.call(this);
 			
 			this.registerEvents(["expanded", "collapsed"]);
 			
-			this.on("itemAdded", function(that, item) { that.$itemAdded(item); });
-			this.on("itemRemoved", function(that, item) { that.$itemRemoved(item); });
+			this.on("itemAdded", function(that, item) { that.getTree().$itemAdded(item); });
+			this.on("itemRemoved", function(that, item) { that.getTree().$itemRemoved(item); });
 			lc.events.listen(this.collapserDiv, "click", new lc.async.Callback(this, function(event) {
 				this.toggleExpanded();
 				event.stopPropagation();
@@ -100,23 +100,6 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 		}, {
 			getTree: function() {
 				return this.getChoice();
-			},
-			
-			$itemAdded: function(item) {
-				this.getTree().callExtensions("beforeItemAdded", item);
-				var index = this.indexOf(item);
-				if (index >= this.itemContent.childNodes.length)
-					this.itemContent.appendChild(item.element);
-				else
-					this.itemContent.insertBefore(item.element, this.getItemAt(index).element);
-				lc.css.addClass(this.element, "has-children");
-				this.getTree().callExtensions("afterItemAdded", item);
-			},
-			
-			$itemRemoved: function(item) {
-				if (this.getNbItems() == 0)
-					lc.css.removeClass(this.element, "has-children");
-				this.getTree().callExtensions("itemRemoved", item);
 			},
 			
 			isExpanded: function() {
@@ -156,7 +139,6 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 				lc.ui.Choice.Item.Selectable.prototype.destroy.call(this);
 				lc.ui.Choice.ItemContainer.prototype.destroy.call(this);
 				this.itemTitleContainer = null;
-				this.itemTitle = null;
 				this.collapserDiv = null;
 				this.itemContent = null;
 			}
@@ -164,8 +146,6 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 	);
 	
 	lc.core.extendClass("lc.ui.Tree.Extension", lc.ui.Component.Extension, function() {}, {
-		beforeItemAdded: function(item) {},
-		afterItemAdded: function(item) {},
 		itemRemoved: function(item) {}
 	});
 

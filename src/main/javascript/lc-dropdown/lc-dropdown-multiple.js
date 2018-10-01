@@ -31,7 +31,7 @@ lc.app.onDefined(["lc.ui.DropDown.Extension"], function() {
 						content.className = "lc-dropdown-multiple-content";
 						for (var i = 0; i < sel.length; ++i) {
 							var item = sel[i];
-							var element = this.menu.getItemOriginalElement(item);
+							var element = item.itemElement;
 							if (element.hasAttribute("text"))
 								element = document.createTextNode(element.getAttribute("text"));
 							else

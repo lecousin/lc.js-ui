@@ -16,6 +16,11 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.Context"], function()
 
 			lc.events.listen(this.container, 'destroy', new lc.async.Callback(this, this.destroy));
 			lc.css.addClass(this.container, this.componentName);
+			var subClasses = lc.core.getExtendedClasses(this);
+			for (var i = 0; i < subClasses.length; ++i) {
+				if (typeof subClasses[i].prototype.componentName === 'string')
+					lc.css.addClass(this.container, subClasses[i].prototype.componentName);
+			}
 			lc.Extendable.call(this);
 			lc.events.Producer.call(this);
 			
@@ -63,6 +68,7 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.Context"], function()
 			performBuild: function() {
 				this.callExtensions("preBuild", this);
 				this.build();
+				lc.ui.style.applyDefaultStyle(this);
 				this._built = true;
 				this.callExtensions("postBuild", this);
 				this.trigger("built", this);
@@ -79,11 +85,7 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.Context"], function()
 				lc.Extendable.prototype.destroy.call(this);
 				var ctx = lc.Context.get(this.container, true);
 				if (ctx) ctx.removeProperty("lc.ui.Component");
-				while (this.container.childNodes.length > 0) {
-					var child = this.container.removeChild(this.container.childNodes[0]);
-					if (child.nodeType == 1)
-						lc.events.destroyed(child);
-				}
+				lc.html.remove(this.container);
 				this.container = null;
 				lc.events.Producer.prototype.destroy.call(this);
 			}
@@ -183,6 +185,19 @@ lc.app.onDefined(["lc.Extendable","lc.events.Producer","lc.Context"], function()
 			found.push(component);
 		for (var i = 0; i < element.childNodes.length; ++i)
 			lc.ui.Component.getInstancesRecursive(type, element.childNodes[i], found);
+	};
+	
+	lc.ui.Component.get = function(element) {
+		if (typeof element === 'string') element = document.getElementById(element);
+		return lc.Context.getValue(element, "lc.ui.Component");
+	};
+	
+	lc.ui.Component.getContainer = function(element, componentType) {
+		if (!element) return undefined;
+		var component = lc.Context.getValue(element, "lc.ui.Component");
+		if (component && (!componentType || lc.core.instanceOf(component, componentType)))
+			return component;
+		return lc.ui.Component.getContainer(element.parentNode, componentType);
 	};
 	
 });

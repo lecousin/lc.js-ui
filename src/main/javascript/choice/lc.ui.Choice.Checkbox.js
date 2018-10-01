@@ -1,24 +1,24 @@
-lc.app.onDefined(["lc.ui.Menu.Extension"], function() {
-	lc.core.extendClass("lc.ui.Menu.Checkbox", [lc.ui.Menu.Extension],
+lc.app.onDefined(["lc.ui.Choice.Extension"], function() {
+	lc.core.extendClass("lc.ui.Choice.Checkbox", [lc.ui.Choice.Extension],
 		function() {
 		}, {
 			extensionName: "checkbox",
 			priority: -5000, // very low so we can add the checkbox at the beginning
 			
-			init: function(menu) {
-				var items = menu.getItems();
+			init: function(choice) {
+				var items = choice.getAllItems();
 				for (var i = 0; i < items.length; ++i)
-					this.beforeItemAdded(menu, items[i]);
+					this.beforeItemAdded(choice, items[i]);
 			},
 			
-			beforeItemAdded: function(menu, item) {
+			beforeItemAdded: function(choice, item) {
 				if (lc.core.instanceOf(item, lc.ui.Choice.Item.Selectable)) {
 					var cb = document.createElement("INPUT");
-					item._menu_checkbox = cb;
+					item._choice_checkbox = cb;
 					cb.type = "checkbox";
 					cb.checked = item.selected;
 					cb.disabled = item.disabled;
-					item.element.insertBefore(cb, item.element.childNodes[0]);
+					item.insertBefore(cb, 10000);
 					cb.onchange = function() {
 						item.selected = this.checked;
 					};
@@ -30,23 +30,23 @@ lc.app.onDefined(["lc.ui.Menu.Extension"], function() {
 					});
 				} else {
 					var cb = document.createElement("INPUT");
-					item._menu_checkbox = cb;
+					item._choice_checkbox = cb;
 					cb.type = "checkbox";
 					cb.style.opacity = "0";
-					item.element.insertBefore(cb, item.element.childNodes[0]);
+					item.insertBefore(cb, 10000);
 				}
 			},
 			
-			destroy: function(menu) {
-				var items = menu.getItems();
+			destroy: function(choice) {
+				var items = choice.getAllItems();
 				for (var i = 0; i < items.length; ++i)
-					if (items[i]._menu_checkbox) {
-						lc.html.remove(items[i]._menu_checkbox);
-						items[i]._menu_checkbox = null;
+					if (items[i]._choice_checkbox) {
+						lc.html.remove(items[i]._choice_checkbox);
+						items[i]._choice_checkbox = null;
 					}
 			}
 		}
 	);
 	
-	lc.Extension.Registry.register(lc.ui.Menu, lc.ui.Menu.Checkbox);
+	lc.Extension.Registry.register(lc.ui.Choice, lc.ui.Choice.Checkbox);
 });

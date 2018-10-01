@@ -2,6 +2,7 @@ lc.core.namespace("lc.ui.style", {
 	
 	_componentStyles: [],
 	_themes: [],
+	_componentDefaultStyles: [],
 	
 	registerComponentStyle: function(componentClass, styleName, requiredTheme) {
 		lc.ui.style._componentStyles.push({ componentClass: componentClass, styleName: styleName, requiredTheme: requiredTheme });
@@ -9,6 +10,10 @@ lc.core.namespace("lc.ui.style", {
 	
 	registerTheme: function(themeName) {
 		lc.ui.style._themes.push(themeName);
+	},
+	
+	setComponentDefaultStyle: function(componentClass, selector, defaultStyleName, priority) {
+		lc.ui.style._componentDefaultStyles.push({ componentClass: componentClass, selector: selector, styleName: defaultStyleName, priority: priority });
 	},
 	
 	_getClass: function(element, start) {
@@ -76,15 +81,16 @@ lc.core.namespace("lc.ui.style", {
 	getActiveStyle: function(component) {
 		var element = component.container;
 		do {
-			var style = lc.ui.style.getAppliedStyle(element);
+			var style = lc.ui.style.getAppliedStyle(component, element);
 			if (style) return style;
 			if (element == document.body || !element.parentNode) return null;
 			element = element.parentNode;
 		} while (true);
 	},
 	
-	getAppliedStyle: function(component) {
-		return lc.ui.style._getClass(component.container, component.componentName + "-style-");
+	getAppliedStyle: function(component, element) {
+		if (!element) element = component.container;
+		return lc.ui.style._getClass(element, component.componentName + "-style-");
 	},
 	
 	applyStyle: function(component, styleName) {
@@ -98,6 +104,30 @@ lc.core.namespace("lc.ui.style", {
 			if (!style) return;
 			lc.css.removeClass(component.container, component.componentName + "-style-" + style);
 		} while (true);
+	},
+	
+	applyDefaultStyle: function(component) {
+		if (lc.ui.style.getActiveStyle(component)) return;
+		var style = null;
+		var prio = -1;
+		for (var i = 0; i < lc.ui.style._componentDefaultStyles.length; ++i) {
+			var df = lc.ui.style._componentDefaultStyles[i];
+			if (style != null && df.priority < priority) continue;
+			if (component.constructor == df.componentClass || lc.core.isExtending(component.constructor, df.componentClass)) {
+				var matching = document.body.querySelectorAll(df.selector);
+				var eligible = false;
+				for (var j = 0; j < matching.length; ++j)
+					if (matching[j] === component.container) {
+						eligible = true;
+						break;
+					}
+				if (eligible) {
+					style = df.styleName;
+					prio = df.priority;
+				}
+			}
+		}
+		if (style) lc.ui.style.applyStyle(component, style);
 	}
 	
 });

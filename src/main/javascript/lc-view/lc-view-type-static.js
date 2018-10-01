@@ -4,34 +4,41 @@ lc.app.onDefined("lc.ui.View.TypeHandler", function() {
 		function() {
 			lc.ui.View.TypeHandler.call(this, "static");
 		}, {
-			initPage: function(page) {
+			initPage: function(view, page) {
 				
 			},
 			
-			initPageFromElement: function(page, element) {
+			initPageFromElement: function(view, page, element) {
 				page.element = element;
 				page.processed = false;
 			},
 			
-			load: function(page) {
+			load: function(view, page) {
 				var future = new lc.async.Future();
 				future.success();
 				return future;
 			},
 			
-			show: function(page, container) {
+			show: function(view, page, container) {
 				container.appendChild(page.element);
 				if (!page.processed) {
 					lc.html.processor.process(page.element);
 					page.processed = true;
 				}
+				return lc.async.Future.alreadySuccess();
 			},
 			
-			hide: function(page, container) {
+			hide: function(view, page, container) {
 				container.removeChild(page.element);
+				return lc.async.Future.alreadySuccess();
 			},
 			
-			destroyPage: function(page) {
+			isSamePageReference: function(page1, page2) {
+				if (!page1.element || !page2.element) return false;
+				return page1.element == page2.element;
+			},
+			
+			destroyPage: function(view, page) {
 				lc.events.destroyed(page.element);
 				page.element = null;
 			}

@@ -1,13 +1,9 @@
-// load from template
-// static
-// load from url
-
-// can be changed from hash
-// from history
-// links to change a view
-
 lc.app.onDefined("lc.ui.Component", function() {
 
+	/**
+	 * A Tabs is simply (1) a menu (2) a view, each menu item showing a page in the view.
+	 * It means that both extensions of menu and view may be respectively applied.
+	 */
 	lc.core.extendClass("lc.ui.Tabs", [lc.ui.Component],
 		function(container, doNotConfigure, doNotBuild){
 			this.menu = new lc.ui.Menu(document.createElement("DIV"), true, true);
@@ -19,16 +15,22 @@ lc.app.onDefined("lc.ui.Component", function() {
 			configure: function() {
 				// TODO
 				this.menu.performConfiguration();
-				this.menu.applyStyle("tab-folder");
 				this.view.performConfiguration();
 			},
 			
 			build: function() {
+				var content = [];
+				while (this.container.childNodes.length > 0)
+					content.push(this.container.removeChild(this.container.childNodes[0]));
+
+				this.container.appendChild(this.menu.container);
+				this.container.appendChild(this.view.container);
+				
 				this.menu.performBuild();
 				this.view.performBuild();
 
-				while (this.container.childNodes.length > 0) {
-					var node = this.container.removeChild(this.container.childNodes[0]);
+				for (var i = 0; i < content.length; ++i) {
+					var node = content[i];
 					if (node.nodeType == 1) {
 						if (node.nodeName == "TAB") {
 							this.createTabFromElement(node);
@@ -38,9 +40,6 @@ lc.app.onDefined("lc.ui.Component", function() {
 					}
 					lc.events.destroyed(node);
 				}
-				
-				this.container.appendChild(this.menu.container);
-				this.container.appendChild(this.view.container);
 				
 				// if nothing selected, select the first one
 				if (this.menu.getSelection().length == 0 && this.menu.getNbItems() > 0)
@@ -99,4 +98,8 @@ lc.app.onDefined("lc.ui.Component", function() {
 	);
 	
 	lc.ui.Component.Registry.register(lc.ui.Tabs);
+	
+	lc.app.onDefined("lc.ui.style", function() {
+		lc.ui.style.setComponentDefaultStyle(lc.ui.Menu, ".lc-tabs>.lc-menu", "tab-folder", 0);
+	});
 });

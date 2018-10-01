@@ -26,20 +26,26 @@ lc.app.onDefined("lc.ui.Component", function() {
 			build: function() {
 				while (this.container.childNodes.length > 0) {
 					var e = this.container.removeChild(this.container.childNodes[0]);
-					if (e.nodeType != 1) continue;
-					if (e.nodeName == "HEADER") {
-						while (e.childNodes.length > 0)
-							this.titleDiv.appendChild(e.removeChild(e.childNodes[0]));
-					} else if (e.nodeName == "CONTENT") {
-						while (e.childNodes.length > 0)
-							this.content.appendChild(e.removeChild(e.childNodes[0]));
-					}
+					this.buildFromElement(e);
 				}
 				this.container.appendChild(this.header);
 				this.container.appendChild(this.content);
 			},
 			
+			buildFromElement: function(e) {
+				if (e.nodeType != 1) return;
+				if (e.nodeName == "HEADER") {
+					while (e.childNodes.length > 0)
+						this.titleDiv.appendChild(e.removeChild(e.childNodes[0]));
+				} else if (e.nodeName == "CONTENT") {
+					while (e.childNodes.length > 0)
+						this.content.appendChild(e.removeChild(e.childNodes[0]));
+				} else
+					lc.log.error("lc.ui.Panel", "Unexpected element " + e.nodeName + " in a lc-panel");
+			},
+			
 			destroy: function() {
+				if (!this.header) return;
 				lc.events.destroyed(this.header);
 				this.header = null;
 				this.titleDiv = null;

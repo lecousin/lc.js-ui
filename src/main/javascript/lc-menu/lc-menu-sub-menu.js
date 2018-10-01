@@ -19,7 +19,7 @@ lc.app.onDefined(["lc.ui.Menu.Extension"], function() {
 			
 			_handleSubMenu: function(menu, item) {
 				if (item.subMenu) return;
-				var element = menu.getItemOriginalElement(item);
+				var element = item.itemElement;
 				if (!element.hasAttribute("sub-menu")) return;
 				for (var i = 0; i < element.childNodes.length; ++i) {
 					if (element.childNodes[i].nodeType != 1) continue;
@@ -81,7 +81,7 @@ lc.app.onDefined(["lc.ui.Menu.Extension"], function() {
 				for (var i = 0; i < items.length; ++i) {
 					var item = items[i];
 					if (item.subMenu) {
-						var element = menu.getItemOriginalElement(item);
+						var element = item.itemElement;
 						element.setAttribute("sub-menu", "");
 						element.appendChild(item.subMenu.container);
 						if (item._subMenuSelectionChanged)

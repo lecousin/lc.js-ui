@@ -4,6 +4,7 @@ module.exports = function(grunt) {
 	grunt.loadNpmTasks('grunt-newer');
 	grunt.loadNpmTasks('grunt-contrib-less');
 	grunt.loadNpmTasks('grunt-contrib-jasmine');
+	grunt.loadNpmTasks('grunt-contrib-copy');
 	grunt.initConfig({
 		concat: {
 			options: {
@@ -49,6 +50,13 @@ module.exports = function(grunt) {
 				}
 			}
 		},
+		copy: {
+			all: {
+				files: [
+				  { cwd: 'src/main/javascript', src: ['**/locale/*.*'], dest: 'dist/locale/', expand: true, flatten: true }
+				]
+			}
+		},
 		jasmine: {
 			src: 'src/main/javascript/**/*.js',
 			options: {
@@ -57,6 +65,6 @@ module.exports = function(grunt) {
 			}
 		}
     });
-    grunt.registerTask('default', ['jasmine','newer:concat','newer:uglify','less:ui','less:themes']);
-    grunt.registerTask('release', ['jasmine','concat','uglify','less:ui','less:themes']);
+    grunt.registerTask('default', ['jasmine','newer:concat','newer:uglify','less:ui','less:themes','newer:copy:all']);
+    grunt.registerTask('release', ['jasmine','concat','uglify','less:ui','less:themes','copy:all']);
 };
