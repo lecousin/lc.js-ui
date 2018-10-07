@@ -46,6 +46,7 @@ lc.app.onDefined(["lc.ui.Component", "lc.ui.Choice"], function() {
 			},
 			
 			destroy: function() {
+				if (this._dynContent == null) return;
 				this._dynContent.destroy();
 				this._dynContent = null;
 				lc.ui.Component.prototype.destroy.call(this);

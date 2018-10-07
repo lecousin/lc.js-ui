@@ -14,7 +14,7 @@ lc.app.onDefined("lc.ui.Tree", function() {
 		
 		postBuild: function(tree) {
 			if (tree.container.hasAttribute("lc-tree-dynamic-provider")) {
-				var provider = lc.ui.expression.evaluate(tree.container.getAttribute("lc-tree-dynamic-provider"), tree.container, tree.container);
+				var provider = lc.Context.expression.evaluate(tree.container.getAttribute("lc-tree-dynamic-provider"), tree.container, tree.container);
 				if (lc.core.instanceOf(provider, lc.ui.Tree.Dynamic.Provider))
 					this.setProvider(provider);
 				else

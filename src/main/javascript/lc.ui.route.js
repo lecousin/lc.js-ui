@@ -24,18 +24,22 @@ lc.core.namespace("lc.ui.route", {
 		var route = location.hash;
 		if (route.length <= 1) return;
 		route = route.substring(1);
-		var views = [];
-		views = lc.ui.route._searchRoute(route, views, lc.ui.route._routing);
-		if (!views) {
-			lc.log.warn("lc.ui.route", "Route not found from hash: " + route);
-			return;
-		}
-		lc.ui.route._applyViews(views);
+		lc.ui.route.goTo(route);
 	},
 	
 	updateHashFromRoute: function() {
 		var route = lc.ui.route._searchCurrentRoute(lc.ui.route._routing);
 		if (route) location.hash = "#" + route;
+	},
+	
+	goTo: function(route) {
+		var views = [];
+		views = lc.ui.route._searchRoute(route, views, lc.ui.route._routing);
+		if (!views) {
+			lc.log.warn("lc.ui.route", "Route not found: " + route);
+			return;
+		}
+		return lc.ui.route._applyViews(views);
 	},
 	
 	_searchCurrentRoute: function(routing, parentView) {
@@ -44,8 +48,8 @@ lc.core.namespace("lc.ui.route", {
 			if (!view) continue;
 			for (var i = 0; i < routing[viewName].length; ++i) {
 				var page = routing[viewName][i];
-				if (!lc.ui.route.isPageMatching(page, view.getCurrentPage())) continue;
-				if (page.route) return page.route;
+				if (!lc.ui.route.isPageMatching(view.getCurrentPage(), page)) continue;
+				if (page.route) return lc.ui.route.resolveRouteParameters(page.route, view.getCurrentPage());
 				if (page.views) {
 					var result = lc.ui.route._searchCurrentRoute(page.views, view);
 					if (result) return result;
@@ -53,6 +57,13 @@ lc.core.namespace("lc.ui.route", {
 			}
 		}
 		return null;
+	},
+	
+	resolveRouteParameters: function(route, page) {
+		if (!page.parameters) return route;
+		for (var name in page.parameters)
+			route = route.replace("{" + name + "}", page.parameters[name]);
+		return route;
 	},
 	
 	_searchRoute: function(routeName, viewsPath, routing) {
@@ -65,6 +76,16 @@ lc.core.namespace("lc.ui.route", {
 					viewsPath.push({
 						name: viewName,
 						page: route
+					});
+					return viewsPath;
+				}
+				// we may have parameters
+				var params = route.route ? lc.ui.route.createParametersFromRoute(route.route, routeName) : null;
+				if (params) {
+					viewsPath.push({
+						name: viewName,
+						page: route,
+						parameters: params
 					});
 					return viewsPath;
 				}
@@ -82,30 +103,82 @@ lc.core.namespace("lc.ui.route", {
 		return null;
 	},
 	
+	createParametersFromRoute: function(originalRoute, routeWithParams) {
+		var parts = [];
+		var pos = 0;
+		do {
+			var i = originalRoute.indexOf('{', pos);
+			if (i < 0) break;
+			var j = originalRoute.indexOf('}', i + 1);
+			if (j < 0) break;
+			parts.push(originalRoute.substring(pos, i));
+			parts.push(originalRoute.substring(i + 1, j));
+			pos = j + 1;
+		} while (pos < originalRoute.length);
+		parts.push(originalRoute.substring(pos));
+		
+		if (parts.length < 2) return null; // no parameters
+		
+		pos = 0;
+		var i = 0;
+		var params = {};
+		do {
+			var fix = parts[i];
+			if (parts.length == i + 1) {
+				// final part
+				if (routeWithParams.substring(pos) != fix)
+					return null;
+				break;
+			}
+			var name = parts[i + 1];
+			if (routeWithParams.indexOf(fix, pos) != pos) return null;
+			var nextFix = parts[i + 2];
+			var j;
+			if (nextFix.length == 0) {
+				if (routeWithParams.indexOf('/', pos + fix.length) > 0)
+					return null;
+				j = routeWithParams.length;
+			} else
+				j = routeWithParams.indexOf(nextFix, pos + fix.length);
+			if (j < 0) return null;
+			params[name] = routeWithParams.substring(pos + fix.length, j);
+			pos = j;
+			i += 2;
+		} while (pos < routeWithParams.length);
+		return params;
+	},
+	
 	_applyViews: function(views, parentView) {
-		if (views.length == 0) return;
+		if (views.length == 0) return lc.async.Future.alreadySuccess();
 		var view = views.shift();
 		var v = lc.ui.View.searchView(view.name, parentView);
 		if (!v) {
 			lc.log.warn("lc.ui.route", "Unable to find view " + view.name);
-			return;
+			return lc.async.Future.alreadyError("Unable to find view " + view.name);
 		}
-		var future = lc.ui.route._applyPageToView(v, view.page);
+		var future = lc.ui.route._applyPageToView(v, view.page, view.parameters);
+		var result = new lc.async.Future();
 		future.onsuccess(function() {
-			lc.ui.route._applyViews(views, v);
-		});
+			lc.ui.route._applyViews(views, v).forwardTo(result);
+		}).onerror(result);
+		return result;
 	},
 	
-	_applyPageToView: function(view, page) {
-		if (lc.ui.route.isPageMatching(page, view.getCurrentPage())) {
+	_applyPageToView: function(view, page, params) {
+		var p = lc.core.copyDeep(page);
+		if (params) {
+			if (!p.parameters) p.parameters = {};
+			for (var name in params) p.parameters[name] = params[name];
+		}
+		if (lc.ui.route.isPageMatching(view.getCurrentPage(), p)) {
 			var future = new lc.async.Future();
 			future.success();
 			return future;
 		}
 		try {
 			if (page.name)
-				return view.showPage(page.name);
-			return view.showPage(page);
+				return view.showPage(page.name); // what about parameters ?
+			return view.showPage(p);
 		} catch (error) {
 			lc.log.error("lc.ui.route", "Unable to route to the correct page: " + error, error);
 			var future = new lc.async.Future();

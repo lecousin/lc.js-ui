@@ -22,7 +22,7 @@ lc.app.onDefined("lc.ui.Grid", function() {
 				}));
 			};
 			this.col.cellRenderer = function(row, cell) {
-				if (!cell._select_cb) {
+				if (!cell._select_cb && !row.notSelectable) {
 					cell._select_cb = document.createElement("INPUT");
 					cell._select_cb.type = "checkbox";
 					lc.events.listen(cell._select_cb, "change", new lc.async.Callback(grid.getExtension(lc.ui.Grid.Selection), function() {
@@ -31,8 +31,10 @@ lc.app.onDefined("lc.ui.Grid", function() {
 						this.selectionChanged(grid);
 					}));
 				}
-				cell.container.appendChild(cell._select_cb);
-				lc.css.addClass(cell.container, "lc-grid-selection-checkbox-container");
+				if (cell._select_cb) {
+					cell.container.appendChild(cell._select_cb);
+					lc.css.addClass(cell.container, "lc-grid-selection-checkbox-container");
+				}
 			};
 			grid.addColumn(this.col, 0);
 		},
@@ -42,10 +44,34 @@ lc.app.onDefined("lc.ui.Grid", function() {
 			for (var i = 0; i < grid.rows.length; ++i) {
 				var row = grid.rows[i];
 				var cell = row.getCellForColumnId('selection');
-				if (cell._select_cb.checked) grid.selection.push(row);
+				if (cell._select_cb) {
+					if (cell._select_cb.checked) grid.selection.push(row);
+				}
 			}
+			var nbSelectable = 0;
+			for (var i = 0; i < grid.rows.length; ++i) {
+				var row = grid.rows[i];
+				var cell = row.getCellForColumnId('selection');
+				if (cell._select_cb) {
+					if (typeof row["canBeSelected"] === 'function') {
+						if (!row.canBeSelected()) {
+							if (cell._select_cb.checked) {
+								lc.css.removeClass(row.container, "selected");
+								cell._select_cb.checked = false;
+								grid.selection.remove(row);
+							}
+							cell._select_cb.disabled = true;
+						} else {
+							cell._select_cb.disabled = false;
+							nbSelectable++;
+						}
+					} else
+						nbSelectable++;
+				}
+			}
+			this.col._select_cb.indeterminate = false;
 			if (grid.selection.length == 0) this.col._select_cb.checked = false;
-			else if (grid.selection.length == grid.rows.length) this.col._select_cb.checked = true;
+			else if (grid.selection.length == nbSelectable) this.col._select_cb.checked = true;
 			else this.col._select_cb.indeterminate = true;
 			grid.trigger("selectionChanged");
 		},
@@ -55,6 +81,7 @@ lc.app.onDefined("lc.ui.Grid", function() {
 			for (var i = 0; i < grid.rows.length; ++i) {
 				var row = grid.rows[i];
 				var cell = row.getCellForColumnId('selection');
+				if (!cell._select_cb) continue;
 				if (this.col._select_cb.checked) {
 					cell._select_cb.checked = true;
 					lc.css.addClass(row.container, "selected");
@@ -62,6 +89,23 @@ lc.app.onDefined("lc.ui.Grid", function() {
 				} else {
 					cell._select_cb.checked = false;
 					lc.css.removeClass(row.container, "selected");
+				}
+			}
+			for (var i = 0; i < grid.rows.length; ++i) {
+				var row = grid.rows[i];
+				var cell = row.getCellForColumnId('selection');
+				if (cell._select_cb) {
+					if (typeof row["canBeSelected"] === 'function') {
+						if (!row.canBeSelected()) {
+							if (cell._select_cb.checked) {
+								lc.css.removeClass(row.container, "selected");
+								cell._select_cb.checked = false;
+								grid.selection.remove(row);
+							}
+							cell._select_cb.disabled = true;
+						} else
+							cell._select_cb.disabled = false;
+					}
 				}
 			}
 			grid.trigger("selectionChanged");

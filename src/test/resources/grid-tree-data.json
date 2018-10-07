@@ -1,0 +1,30 @@
+[
+	{
+		"name": "A directory",
+		"children": [
+			{
+				"name": "A file",
+				"size": 15792345,
+				"date": 1479521478
+			}, {
+				"name": "A sub-directory",
+				"children": [
+					{
+						"name": "file1",
+						"size": 0,
+						"date": 111111111
+					},
+					{
+						"name": "file2",
+						"size": 1587,
+						"date": 222222222
+					}
+				]
+			}
+		]
+	},{
+		"name": "file",
+		"size": 123456,
+		"date": 123456789
+	}
+]

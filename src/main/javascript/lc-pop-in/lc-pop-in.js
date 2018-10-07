@@ -1,64 +1,8 @@
 lc.app.onDefined(["lc.ui.Component"], function() {
 	
-	lc.core.extendClass("lc.ui.Popin", [lc.ui.Component, lc.Configurable], 
+	lc.core.extendClass("lc.ui.Popin", lc.ui.Component, 
 		function(container, doNotConfigure, doNotBuild) {
-			var properties = {
-				attachVertical: {
-					types: ["enum"],
-					value: "bottom-start",
-					enumValues: ["top-start", "top-end", "middle", "bottom-start", "bottom-end"],
-					set: function(value, properties) {
-						if (!value) return;
-						if (value.toLowerCase() == 'top-start') value = 'top-start';
-						else if (value.toLowerCase() == 'top-end') value = 'top-end';
-						else if (value.toLowerCase() == 'middle') value = 'middle';
-						else if (value.toLowerCase() == 'bottom-start') value = 'bottom-start';
-						else if (value.toLowerCase() == 'bottom-end') value = 'bottom-end';
-						else {
-							lc.log.warn("lc.ui.Popin", "Unknown attachVertical value: " + value);
-							return;
-						}
-						if (properties.attachVertical.value == value) return;
-						properties.attachVertical.value = value;
-						if (this.isShown()) this._computePosition();
-					}
-				},
-				attachHorizontal: {
-					types: ["enum"],
-					value: "left-start",
-					enumValues: ["left-start", "left-end", "center", "right-start", "right-end"],
-					set: function(value, properties) {
-						if (!value) return;
-						if (value.toLowerCase() == 'left-start') value = 'left-start';
-						else if (value.toLowerCase() == 'left-end') value = 'left-end';
-						else if (value.toLowerCase() == 'center') value = 'center';
-						else if (value.toLowerCase() == 'right-start') value = 'right-start';
-						else if (value.toLowerCase() == 'right-end') value = 'right-end';
-						else {
-							lc.log.warn("lc.ui.Popin", "Unknown attachHorizontal value: " + value);
-							return;
-						}
-						if (properties.attachHorizontal.value == value) return;
-						properties.attachHorizontal.value = value;
-						if (this.isShown()) this._computePosition();
-					}
-				},
-				forceOrientation: {
-					types: ["boolean"],
-					value: false,
-					set: function(value, properties) {
-						if (typeof value !== 'boolean') return;
-						if (properties.forceOrientation.value === value) return;
-						properties.forceOrientation.value = value;
-						if (this.isShown()) this._computePosition();
-					}
-				}
-			};
-			lc.Configurable.call(this, properties);
-			
-			this._attachment = null;
 			this._shown = false;
-			
 			lc.ui.Component.call(this, container, doNotConfigure, doNotBuild);
 		}, {
 			componentName: "lc-pop-in",
@@ -66,36 +10,17 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 			configure: function() {
 				this.container.style.display = "none";
 				this.registerEvents(["show", "hide"]);
-				this._recomputePosition = new lc.async.Callback(this, this._computePosition);
+				this.recomputePositionListener = new lc.async.Callback(this, this.computePosition);
 			},
 			
 			build: function() {
 				// keep location before to move it to the body
 				lc.ui.navigation.setUrl(this.container, lc.ui.navigation.getUrl(this.container));
+				// if the current container is destroyed, we need to destroy ourself
+				if (!this.container.parentNode) throw new Error("A pop-in must be in the document so we can know when to destroy it");
+				lc.events.listen(this.container.parentNode, "destroy", new lc.async.Callback(this, this.destroy));
+				// move ourself to the body
 				document.body.appendChild(this.container);
-				if (this.container.hasAttribute("attach-to")) {
-					var elem = document.getElementById(this.container.getAttribute("attach-to"));
-					if (elem)
-						this.attachTo(elem);
-					else
-						lc.log.warn("lc.ui.Popin", "pop-in attached to element id '" + this.container.getAttribute("attach-to") + "' but it does not exist.");
-				}
-				if (this.container.hasAttribute("attach-orientation")) {
-					var s = this.container.getAttribute("attach-orientation");
-					var i = s.indexOf(',');
-					if (i < 0)
-						this.attachVertical = s.trim();
-					else {
-						var a = s.substring(0, i).trim();
-						if (a.length > 0) this.attachVertical = a;
-						a = s.substring(i + 1).trim();
-						if (a.length > 0) this.attachHorizontal = a;
-					}
-				}
-			},
-			
-			attachTo: function(element) {
-				this._attachment = element;
 			},
 			
 			show: function() {
@@ -103,24 +28,9 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 				var animation = lc.animation.animate(this.container);
 				this.callExtensions("beforeShow");
 				this._shown = true;
-				this._computePosition();
-				if (this._attachment) {
-					lc.events.listen(window, 'resize', this._recomputePosition);
-					lc.events.listen(window, 'scroll', this._recomputePosition);
-					var p = this._attachment.parentNode;
-					while (p && p != document.body) {
-						lc.events.listen(p, 'scroll', this._recomputePosition);
-						p = p.parentNode;
-					}
-				}
+				this.computePosition();
 				this.callExtensions("afterShow", animation);
 				this.trigger("show", animation);
-			},
-			
-			showAttached: function(attachedTo, verticalAttachment, horizontalAttachment) {
-				this.attachTo(attachedTo);
-				this.setAttachmentOrientation(verticalAttachment, horizontalAttachment);
-				this.show();
 			},
 			
 			hide: function() {
@@ -129,15 +39,6 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 				this.callExtensions("beforeHide");
 				this._shown = false;
 				animation.ondone(new lc.async.Callback(this, function() { if (this.container) this.container.style.display = "none"; }));
-				if (this._attachment) {
-					lc.events.unlisten(window, 'resize', this._recomputePosition);
-					lc.events.unlisten(window, 'scroll', this._recomputePosition);
-					var p = this._attachment.parentNode;
-					while (p && p != document.body) {
-						lc.events.unlisten(p, 'scroll', this._recomputePosition);
-						p = p.parentNode;
-					}
-				}
 				this.callExtensions("afterHide", animation);
 				this.trigger("hide", animation);
 			},
@@ -155,7 +56,7 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 				else this.show();
 			},
 			
-			_computePosition: function() {
+			computePosition: function() {
 				this.container.style.maxHeight = "";
 				this.container.style.overflowY = "";
 				this.container.style.maxWidth = "";
@@ -173,68 +74,20 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 					this.container.style.overflowX = "auto";
 				}
 				
-				if (this._attachment) {
-					var pos;
-					var rect = this._attachment.getBoundingClientRect();
-					pos = { x: rect.left, y: rect.top };
-					switch (this.attachVertical) {
-					case "top-start": break;
-					case "top-end": pos.y -= this.container.offsetHeight; break;
-					case "bottom-start": pos.y += this._attachment.offsetHeight; break;
-					case "bottom-end": pos.y += this._attachment.offsetHeight - this.container.offsetHeight; break;
-					case "middle": pos.y += (this._attachment.offsetHeight / 2) - (this.container.offsetHeight / 2); break;
-					}
-					switch (this.attachHorizontal) {
-					case "left-start": break;
-					case "left-end": pos.x -= this.container.offsetWidth; break;
-					case "right-start": pos.x += this._attachment.offsetWidth; break;
-					case "right-end": pos.x += this._attachment.offsetWidth - this.container.offsetWidth; break;
-					case "center": pos.x += (this._attachment.offsetWidth / 2) - (this.container.offsetWidth / 2); break;
-					}
-					if (!this.forceOrientation) {
-						if (pos.y + this.container.offsetHeight > window.innerHeight) {
-							if (window.innerHeight - pos.y >= 75) {
-								this.container.style.maxHeight = (window.innerHeight - pos.y) + 'px';
-								this.container.style.overflowY = "auto";
-							} else {
-								// force position on top
-								pos.y = rect.top - this.container.offsetHeight;
-							}
-						}
-						if (pos.y < 0) pos.y = 0;
+				this.$position();
 
-						if (pos.x + this.container.offsetWidth > window.innerWidth) {
-							if (window.innerWidth - pos.x >= 75) {
-								this.container.style.maxWidth = (window.innerWidth - pos.x) + 'px';
-								this.container.style.overflowX = "auto";
-							} else {
-								// force position on left
-								pos.x = rect.left - this.container.offsetWidth;
-							}
-						}
-						if (pos.x < 0) pos.x = 0;
-					}
-					
-					lc.css.removeClass(this.container, "lc-animate-down");
-					lc.css.removeClass(this.container, "lc-animate-up");
-					lc.css.removeClass(this.container, "lc-animate-left");
-					lc.css.removeClass(this.container, "lc-animate-right");
-					if (pos.y <= rect.top) lc.css.addClass(this.container, "lc-animate-up");
-					else lc.css.addClass(this.container, "lc-animate-down");
-					if (pos.x <= rect.left) lc.css.addClass(this.container, "lc-animate-left");
-					if (pos.x >= rect.left + this._attachment.offsetWidth) lc.css.addClass(this.container, "lc-animate-right");
-					this.container.style.top = pos.y + "px";
-					this.container.style.left = pos.x + "px";
-				} else {
-					// center on page
-					this.container.style.top = "50%";
-					this.container.style.left = "50%";
-					this.container.style.transform = "translateX(-50%) translateY(-50%)";
-				}
 				this.callExtensions("afterPosition");
 			},
 			
+			$position: function() {
+				// center on page
+				this.container.style.top = "50%";
+				this.container.style.left = "50%";
+				this.container.style.transform = "translateX(-50%) translateY(-50%)";
+			},
+			
 			destroy: function() {
+				if (!this.container) return;
 				if (this._shown) this.hide();
 				this._attachment = null;
 				lc.ui.Component.prototype.destroy.call(this);

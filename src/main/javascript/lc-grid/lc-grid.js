@@ -314,6 +314,8 @@ lc.app.onDefined("lc.ui.Component", function() {
 			// new data
 			if (this.dataProvider != null) {
 				this.retrieveData().onsuccess(new lc.async.Callback(this, function(data) {
+					if (!data) data = [];
+					if (!Array.isArray(data)) data = [data];
 					this.data = data;
 					this.callExtensions("refreshData", this);
 					this._renderData();
@@ -329,14 +331,48 @@ lc.app.onDefined("lc.ui.Component", function() {
 		},
 		_renderData: function() {
 			for (var i = 0; i < this.data.length; ++i) {
-				var row = new lc.ui.Grid.Row(this, this.data[i]);
-				row.renderer = this.getRowRenderer(row);
-				row.renderer.createCells();
-				this.rows.push(row);
-				this.content.appendChild(row.container);
+				var row = this.createRow(this.data[i]);
+				this.appendRow(row);
 			}
 			this.layout();
 		},
+		
+		createRow: function(data) {
+			var row = new lc.ui.Grid.Row(this, data);
+			row.renderer = this.getRowRenderer(row);
+			row.renderer.createCells();
+			return row;
+		},
+		
+		insertRow: function(row, index) {
+			if (index < 0) index = 0;
+			if (index >= this.rows.length) {
+				this.appendRow(row);
+				return;
+			}
+			var currentRow = this.rows[index];
+			this.rows.splice(index, 0, row);
+			this.content.insertBefore(row.container, currentRow.container);
+		},
+		insertRowAfter: function(row, previousSibling) {
+			var index = this.rows.indexOf(previousSibling);
+			this.insertRow(row, index + 1);
+		},
+		insertRowBefore: function(row, nextSibling) {
+			var index = this.rows.indexOf(nextSibling);
+			this.insertRow(row, index);
+		},
+		appendRow: function(row) {
+			this.rows.push(row);
+			this.content.appendChild(row.container);
+		},
+		
+		removeRow: function(row) {
+			this.rows.remove(row);
+			this.content.removeChild(row.container);
+			row.destroy();
+		},
+		
 		getRowRenderer: function(row) {
 			return new lc.ui.Grid.Row.DefaultRenderer(row);
 		},
@@ -345,12 +381,21 @@ lc.app.onDefined("lc.ui.Component", function() {
 			return this.rowsHeader.concat(this.rows, this.rowsFooter);
 		},
 		
+		getRowForData: function(data) {
+			for (var i = 0; i < this.rows.length; ++i)
+				if (this.rows[i].data == data)
+					return this.rows[i];
+		},
+		
 		/* Build from DOM */
 		
 		build: function() {
 			// if data attribute => data from URL
 			if (this.container.hasAttribute("data"))
 				this.dataProvider = new lc.ui.Grid.DataProviderFromURL(this.container.getAttribute("data"));
+			// if data-context attribute => data from context
+			else if (this.container.hasAttribute("data-context"))
+				this.dataProvider = new lc.ui.Grid.DataProviderFromContext(this.container.getAttribute("data-context"));
 
 			for (var i = 0; i < this.container.childNodes.length; ++i) {
 				var node = this.container.childNodes[i];
@@ -383,6 +428,26 @@ lc.app.onDefined("lc.ui.Component", function() {
 				col.title = document.createElement("SPAN");
 				while (e.childNodes.length > 0) col.title.appendChild(e.removeChild(e.childNodes[0]));
 			}
+			
+			if (typeof col.formatter === 'string') {
+				var format = lc.ui.Formatter.Registry.get(col.formatter);
+				if (format)
+					col.formatter = new format();
+				else
+					col.formatter = null;
+			}
+			if (!col.formatter && element.hasAttribute("formatter")) {
+				var format = lc.ui.Formatter.Registry.get(element.getAttribute("formatter"));
+				if (format)
+					col.formatter = new format();
+			}
+			if (col.formatter)
+				col.formatter.configureFromAttributes(element);
+			
+			if (element.hasAttribute("cellRenderer"))
+				col.cellRenderer = lc.Context.expression.evaluate(element.getAttribute("cellRenderer"), element, col);
+			if (element.hasAttribute("headerCellRenderer"))
+				col.headerCellRenderer = lc.Context.expression.evaluate(element.getAttribute("headerCellRenderer"), element, col);
 				
 			return col;
 		},
@@ -639,190 +704,6 @@ lc.app.onDefined("lc.ui.Component", function() {
 	});
 	lc.ui.Component.Registry.register(lc.ui.Grid);
 	
-	lc.core.createClass("lc.ui.Grid.Column", function(grid, id) {
-		this.grid = grid;
-		this.id = id;
-		this.headerCell = new lc.ui.Grid.Cell(grid.columnsHeadersRow, [id]);
-		lc.css.addClass(this.headerCell.container, "lc-grid-column-header");
-	}, {
-		grid: null,
-		id: null,
-		minWidth: null,
-		maxWidth: null,
-		width: null,
-		canBeMovedOrRemoved: true,
-		headerCell: null,
-		headerCellRenderer: function() {
-			if (this.title)
-				this.headerCell.container.appendChild(this.title);
-		},
-		cellRenderer: function(row, cell) {
-			if (this.field && row.data) {
-				var value = row.data[this.field];
-				if (value !== null && value !== undefined)
-					cell.container.appendChild(document.createTextNode(value));
-			}
-		},
-		destroy: function() {
-			this.grid = null;
-		}
-	});
-	
-	
-	lc.core.createClass("lc.ui.Grid.Row", function(grid, data) {
-		this.grid = grid;
-		this.data = data;
-		this.container = document.createElement("DIV");
-		lc.css.addClass(this.container, "lc-grid-row-container");
-		this.scrollable = document.createElement("DIV");
-		this.scrollable.className = "lc-grid-scrollable-part";
-		this.container.appendChild(this.scrollable);
-		this.cells = [];
-	}, {
-		grid: null,
-		data: null,
-		container: null,
-		cells: null,
-		renderer: null,
-		getCellForColumnId: function(colId) {
-			for (var i = 0; i < this.cells.length; ++i)
-				if (this.cells[i].columnsIds.indexOf(colId) >= 0)
-					return this.cells[i];
-			return null;
-		},
-		destroy: function() {
-			if (this.container)
-				lc.html.remove(this.container);
-			if (this.cells)
-				for (var i = 0; i < this.cells.length; ++i)
-					this.cells[i].destroy();
-			if (this.renderer)
-				this.renderer.destroy();
-			this.renderer = null;
-			this.container = null;
-			this.data = null;
-			this.cells = null;
-			this.grid = null;
-		}
-	});
-	
-	
-	lc.core.createClass("lc.ui.Grid.Row.Renderer", function(row) {
-		this.row = row;
-	}, {
-		row: null,
-		addCell: function(cell) {
-			cell.container.style.marginLeft = "";
-			this.row.cells.push(cell);
-		},
-		removeCell: function(cell) {
-			if (cell.container.parentNode)
-				cell.container.parentNode.removeChild(cell.container);
-			this.row.cells.removeUnique(cell);
-		},
-		createCells: function() {
-			for (var i = 0; i < this.row.grid.columns.length; ++i) {
-				var cell = new lc.ui.Grid.Cell(this.row, this.row.grid.columns[i]);
-				this.row.grid.columns[i].cellRenderer(this.row, cell);
-				this.addCell(cell);
-			}
-		},
-		columnAdded: function(col) {
-			for (var i = 0; i < this.row.cells.length; ++i)
-				if (this.row.cells[i].columnsIds.indexOf(col.id) >= 0)
-					return;
-			var cell = new lc.ui.Grid.Cell(this.row, col);
-			col.cellRenderer(this.row, cell);
-			this.addCell(cell);
-		},
-		columnRemoved: function(col) {
-		},
-		resetLayout: function() {
-			this.row.scrollable.style.width = "";
-			this.row.scrollable.style.height = "";
-		},
-		destroy: function() {
-			this.row = null;
-		}
-	});
-	
-	lc.core.extendClass("lc.ui.Grid.Row.DefaultRenderer", lc.ui.Grid.Row.Renderer, function(row) {
-		lc.ui.Grid.Row.Renderer.call(this, row);
-		row.pinLeft = document.createElement("DIV");
-		row.pinLeft.className = "lc-grid-pinned-part";
-		row.pinRight = document.createElement("DIV");
-		row.pinRight.className = "lc-grid-pinned-part";
-		row.container.insertBefore(row.pinLeft, row.scrollable);
-		row.container.appendChild(row.pinRight);
-	}, {
-		addCell: function(cell) {
-			lc.ui.Grid.Row.Renderer.prototype.addCell.call(this, cell);
-			this.row.scrollable.appendChild(cell.container);
-			this.row.grid.refreshPinnedColumns(this.row);
-		},
-		resetLayout: function() {
-			lc.ui.Grid.Row.Renderer.prototype.resetLayout.call(this);
-			this.row.pinLeft.style.width = "";
-			this.row.pinLeft.style.height = "";
-			this.row.pinRight.style.width = "";
-			this.row.pinRight.style.height = "";
-		},
-		destroy: function() {
-			this.row.pinLeft = null;
-			this.row.scrollable = null;
-			this.row.pinRight = null;
-			lc.ui.Grid.Row.Renderer.prototype.destroy.call(this);
-		}
-	});
-	
-	
-	/** columns are the ones filled by the cell.
-	 * If it is null, it means 'all remaining columns'. Only one cell in a row can be like this.
-	 * If not null, if can be an array or a single element, which is either a column id or a column object.
-	 */
-	lc.core.createClass("lc.ui.Grid.Cell", function(row, columns) {
-		this.row = row;
-		this.container = document.createElement("DIV");
-		this.container.className = "lc-grid-cell";
-		if (columns == null)
-			this.columnsIds = null;
-		else {
-			if (!Array.isArray(columns))
-				columns = [columns];
-			this.columnsIds = [];
-			for (var i = 0; i < columns.length; ++i) {
-				if (typeof columns[i] == 'object')
-					columns[i] = columns[i].id;
-				this.columnsIds.push(columns[i]);
-			}
-		}
-	}, {
-		row: null,
-		container: null,
-		columnsIds: null,
-		destroy: function() {
-			this.row = null;
-			this.container = null;
-		}
-	});
-	
-	
-	lc.core.createClass("lc.ui.Grid.DataProvider", function() {}, {
-		getData: function(grid) { return lc.async.Future.alreadySuccess(); }
-	});
-
-	lc.core.extendClass("lc.ui.Grid.DataProviderFromURL", lc.ui.Grid.DataProvider, function(url) {
-		if (typeof url === 'string')
-			this.url = new lc.URL(url);
-		else
-			this.url = url;
-	}, {
-		getData: function(grid) {
-			return lc.http.rest.get(this.url);
-		}
-	});
-	
-
 	lc.core.extendClass("lc.ui.Grid.Extension", lc.ui.Component.Extension, function() {}, {
 		beforeLayout: function(grid) {},
 		afterLayout: function(grid) {},

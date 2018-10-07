@@ -82,7 +82,10 @@ lc.core.extendClass("lc.ui.navigation.NavigationHandler", [lc.events.Producer],
 			throw new Error("getCurrentPage method must be implemented.");
 		},
 		destroy: function() {
-			lc.Context.get(this._nav_handler_element).removeProperty("NavigationHandler");
+			if (!this._nav_handler_element) return;
+			var ctx = lc.Context.get(this._nav_handler_element, true);
+			if (ctx)
+				ctx.removeProperty("NavigationHandler");
 			this._nav_handler_element = null;
 			lc.ui.navigation._removeHandler(this);
 		}

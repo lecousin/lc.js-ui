@@ -20,7 +20,13 @@ lc.app.onDefined("lc.ui.View.TypeHandler", function() {
 			},
 			
 			show: function(view, page, container) {
-				container.appendChild(page.element);
+				if (page.keepInstance)
+					container.appendChild(page.element);
+				else {
+					page._clone = page.element.cloneNode(true);
+					container.appendChild(page._clone);
+					page.processed = false;
+				}
 				if (!page.processed) {
 					lc.html.processor.process(page.element);
 					page.processed = true;
@@ -29,7 +35,12 @@ lc.app.onDefined("lc.ui.View.TypeHandler", function() {
 			},
 			
 			hide: function(view, page, container) {
-				container.removeChild(page.element);
+				if (page._clone) {
+					page.processed = false;
+					lc.html.remove(page._clone);
+					page._clone = null;
+				} else
+					container.removeChild(page.element);
 				return lc.async.Future.alreadySuccess();
 			},
 			
@@ -39,6 +50,11 @@ lc.app.onDefined("lc.ui.View.TypeHandler", function() {
 			},
 			
 			destroyPage: function(view, page) {
+				if (!page.element) return;
+				if (page._clone) {
+					lc.html.remove(page._clone);
+					page._clone = null;
+				}
 				lc.events.destroyed(page.element);
 				page.element = null;
 			}

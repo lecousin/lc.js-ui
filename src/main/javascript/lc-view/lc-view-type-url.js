@@ -30,8 +30,14 @@ lc.app.onDefined("lc.ui.View.TypeHandler", function() {
 					while (div.childNodes.length > 0)
 						page.elements.push(div.removeChild(div.childNodes[0]));
 				}
-				for (var i = 0; i < page.elements.length; ++i)
-					page.element.appendChild(page.elements[i]);
+				if (page.keepInstance) {
+					for (var i = 0; i < page.elements.length; ++i)
+						page.element.appendChild(page.elements[i]);
+				} else {
+					for (var i = 0; i < page.elements.length; ++i)
+						page.element.appendChild(page.elements[i].cloneNode(true));
+					page.processed = false;
+				}
 				lc.ui.navigation.setUrl(page.element, page.url);
 				container.appendChild(page.element);
 				if (!page.processed)
@@ -40,8 +46,11 @@ lc.app.onDefined("lc.ui.View.TypeHandler", function() {
 			},
 			
 			hide: function(view, page, container) {
-				while (container.childNodes.length > 0)
-					container.removeChild(container.childNodes[0]);
+				if (!page.keepInstance) {
+					while (page.element.childNodes.length > 0)
+						lc.html.remove(page.element.childNodes[0]);
+				}
+				container.removeChild(page.element);
 				return lc.async.Future.alreadySuccess();
 			},
 			
@@ -51,10 +60,14 @@ lc.app.onDefined("lc.ui.View.TypeHandler", function() {
 			},
 			
 			destroyPage: function(view, page) {
-				for (var i = 0; i < page.elements.length; ++i)
-					lc.events.destroyed(page.elements[i]);
+				if (!page.url) return;
+				while (page.element.childNodes.length > 0)
+					lc.html.remove(page.element.childNodes[0]);
+				lc.html.remove(page.element);
+				page.element = null;
 				page.elements = null;
 				page.url = null;
+				page.processed = true;
 			}
 		}
 	);

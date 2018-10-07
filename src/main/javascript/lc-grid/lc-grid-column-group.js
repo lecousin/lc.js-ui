@@ -1,4 +1,4 @@
-lc.app.onDefined("lc.ui.Grid", function() {
+lc.app.onDefined(["lc.ui.Grid.Extension", "lc.ui.Grid.Row.DefaultRenderer"], function() {
 	
 	lc.core.extendClass("lc.ui.Grid.ColumnGroup", lc.ui.Grid.Extension, function() {
 	}, {

@@ -3,10 +3,11 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 	lc.core.extendClass("lc.ui.DropDown", [lc.ui.Component], 
 		function(container, doNotConfigure, doNotBuild) {
 			this.menu = new lc.ui.Menu(document.createElement("DIV"), true, true);
-			this.popin = new lc.ui.Popin(document.createElement("DIV"));
+			this.popin = new lc.ui.Popin(document.createElement("DIV"), true, true);
 			lc.css.addClass(this.popin.container, "lc-pop-in-contextual");
 			this.popin.container.appendChild(this.menu.container);
 			this.popin.addExtension(lc.ui.Popin.AutoHide);
+			this.popin.addExtension(lc.ui.Popin.Attach);
 			
 			// transfer options/extensions to menu and pop-in
 			for (var i = 0; i < container.attributes.length; ++i) {
@@ -90,6 +91,7 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 				while (this.container.childNodes.length > 0)
 					this.menu.container.appendChild(this.container.childNodes[0]);
 				this.menu.performBuild();
+				this.container.appendChild(this.popin.container); // attach the pop-in to us
 				this.popin.performBuild();
 				this._computeSize();
 				this.$setContentFromSelection();
@@ -177,8 +179,8 @@ lc.app.onDefined(["lc.ui.Component"], function() {
 			},
 						
 			destroy: function() {
+				if (this.menu == null) return;
 				lc.ui.Component.prototype.destroy.call(this);
-				lc.ui.Choice.prototype.destroy.call(this);
 				this.$emptySelection = null;
 				this.menu.destroy();
 				this.menu = null;

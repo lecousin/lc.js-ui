@@ -6,7 +6,7 @@ lc.html.processor.addPreProcessor(function(element, elementStatus, globalStatus)
 			var expression = element.getAttribute("lc-if");
 			var value;
 			try {
-				value = lc.ui.expression.evaluate(expression, element, element);
+				value = lc.Context.expression.evaluate(expression, element, element);
 			} catch (e) {
 				lc.log.error("Invalid lc-if expression: " + expression, e);
 			}
@@ -19,7 +19,7 @@ lc.html.processor.addPreProcessor(function(element, elementStatus, globalStatus)
 		
 		for (var attrIndex = 0; attrIndex < element.attributes.length; ++attrIndex) {
 			var a = element.attributes.item(attrIndex);
-			a.nodeValue = lc.ui.expression.resolve(a.nodeValue, element);
+			a.nodeValue = lc.Context.expression.resolve(a.nodeValue, element);
 		}
 		
 		if (element.nodeName == "LC-REQUIRES") {

@@ -143,7 +143,7 @@ Theme:
 	<div>
 		Pop-in:
 		<button id="popin-button" onclick="lc.Context.get(document.getElementById('popin'))['lc.ui.Component'].toggleShow();">Click me</button>
-		<lc-pop-in id="popin" attach-to="popin-button" attach-orientation="bottom-start,left-start" class="lc-pop-in-contextual">
+		<lc-pop-in id="popin" lc-pop-in-attach="popin-button" attach-orientation="bottom-start,left-start" class="lc-pop-in-contextual">
 			This is the content of the pop-in.
 		</lc-pop-in>
 	</div>
@@ -159,7 +159,7 @@ Theme:
 		<div style="width: 200px; height: 50px; overflow: auto">
 			Here is a div with scroll bars, to test how the pop-in is shown while scrolling.<br/>
 			<button id="popin-button2" onclick="lc.Context.get(document.getElementById('popin2'))['lc.ui.Component'].toggleShow();">Click me</button>
-			<lc-pop-in id="popin2" attach-to="popin-button2" attach-orientation="bottom-start,left-start" class="lc-pop-in-contextual">
+			<lc-pop-in id="popin2" lc-pop-in-attach="popin-button2" attach-orientation="bottom-start,left-start" class="lc-pop-in-contextual">
 				This is the content of the pop-in inside a scrolled div.
 			</lc-pop-in>
 			And some text after the button.<br/>
@@ -398,6 +398,60 @@ Theme:
 	<lc-dyn-apply-template name="extensionsTemplate">
 		<variable name="component">lc.Context.get(document.getElementById('grid'))['lc.ui.Component']</variable>
 	</lc-dyn-apply-template>
+</div>
+
+<div class="componentTest">
+
+	<div>
+		<div>
+			Grid with tree:
+		</div>
+		<lc-grid id='grid-tree' lc-grid-tree data="grid-tree-data.json" tree-children-field="children">
+			<column id='name' field='name'>
+				<header>Name</header>
+			</column>
+			<column id='size'field='size' formatter='size'>
+				<header>Size</header>
+			</column>
+			<column id='date'field='date' formatter='timestamp' format='dd/MM/yyyy HH:mm'>
+				<header>Date</header>
+			</column>
+		</lc-grid>
+	</div>
+
+	<lc-dyn-apply-template name="extensionsTemplate">
+		<variable name="component">lc.Context.get(document.getElementById('grid-tree'))['lc.ui.Component']</variable>
+	</lc-dyn-apply-template>
+</div>
+
+
+<div class="componentTest">
+
+	<div>
+		<div>
+			Toast:
+		</div>
+		<lc-toast id='toast'></lc-toast>
+		<button onclick="lc.Context.get(document.getElementById('toast'))['lc.ui.Component'].addToast('message', 'Hello World!', true, 20000);">Add message</button>
+		<button onclick="lc.Context.get(document.getElementById('toast'))['lc.ui.Component'].addToast('success', 'This is a great success', true, 20000);">Add success</button>
+		<button onclick="lc.Context.get(document.getElementById('toast'))['lc.ui.Component'].addToast('error', 'An error occured', true, 20000);">Add error</button>
+		<button onclick="lc.Context.get(document.getElementById('toast'))['lc.ui.Component'].addToast('warning', 'Be careful', true, 20000);">Add warning</button>
+	</div>
+
+	<div style="display: flex; flex-direction: row;">
+		<div>
+			<b>Toast</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('toast'))['lc.ui.Component']</variable>
+			</lc-dyn-apply-template>
+		</div>
+		<div>
+			<b>Popin</b>
+			<lc-dyn-apply-template name="extensionsTemplate">
+				<variable name="component">lc.Context.get(document.getElementById('toast'))['lc.ui.Component'].popin</variable>
+			</lc-dyn-apply-template>
+		</div>
+	</div>
 </div>
 <script type="text/javascript">
 //lc.log.setDefaultLevel(lc.log.Levels.TRACE);

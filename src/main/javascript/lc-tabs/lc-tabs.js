@@ -88,6 +88,7 @@ lc.app.onDefined("lc.ui.Component", function() {
 			},
 			
 			destroy: function() {
+				if (!this.menu) return;
 				this.menu.destroy();
 				this.menu = null;
 				this.view.destroy();

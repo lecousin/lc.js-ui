@@ -127,6 +127,7 @@ lc.app.onDefined("lc.ui.Choice.ItemContainer", function() {
 			},
 			
 			destroy: function() {
+				if (this._selection == null) return;
 				lc.ui.Choice.ItemContainer.prototype.destroy.call(this);
 				lc.events.Producer.prototype.destroy.call(this);
 				this._selection = null;

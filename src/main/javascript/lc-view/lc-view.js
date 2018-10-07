@@ -60,6 +60,8 @@ lc.app.onDefined("lc.ui.Component", function() {
 					name: element.getAttribute("view-name"),
 					loading: null
 				};
+				if (element.hasAttribute("view-keep-instance"))
+					page.keepInstance = true;
 				handler.initPageFromElement(this, page, element);
 				page.init = true;
 				this.addPage(page);
@@ -111,6 +113,8 @@ lc.app.onDefined("lc.ui.Component", function() {
 				else
 					hidePrevious = lc.async.Future.alreadySuccess();
 				hidePrevious.ondone(new lc.async.Callback(this, function() {
+					if (this._pageShown && this._pages.indexOf(this._pageShown) < 0)
+						this._pageShownHandler.destroyPage(this, this._pageShown);
 					this._currentPage = page;
 					page.loading.ondone(new lc.async.Callback(this, function() {
 						if (this._currentPage != page) {
@@ -146,7 +150,18 @@ lc.app.onDefined("lc.ui.Component", function() {
 			},
 			
 			destroy: function() {
-				// TODO destroyPage
+				if (this._pages == null) return;
+				if (this._pageShown && this._pages.indexOf(this._pageShown) < 0)
+					this._pageShownHandler.destroyPage(this, this._pageShown);
+				for (var i = 0; i < this._pages.length; ++i) {
+					var handler = lc.ui.View.TypeHandler.Registry.get(this._pages[i].type);
+					if (handler)
+						handler.destroyPage(this, this._pages[i]);
+				}
+				this._pages = null;
+				this._currentPage = null;
+				this._pageShown = null;
+				this._pageShownHandler = null;
 				lc.ui.navigation.NavigationHandler.prototype.destroy.call(this);
 				lc.ui.Component.prototype.destroy.call(this);
 			}

@@ -69,6 +69,8 @@ lc.app.onDefined(["lc.ui.DropDown.Extension"], function() {
 					},
 					configurable: true // to be able to delete it
 				});
+				
+				lc.ui.DropDown.Extension.prototype.init.call(this, dropdown);
 			},
 			
 			destroy: function(dropdown) {

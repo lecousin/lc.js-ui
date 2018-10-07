@@ -84,10 +84,10 @@ lc.core.extendClass("lc.ui.Choice.ItemContainer", [lc.events.Producer],
 		
 		destroy: function() {
 			if (this._items === null) return;
-			lc.events.Producer.prototype.destroy.call(this);
 			for (var i = 0; i < this._items.length; ++i)
 				this._items[i].destroy();
 			this._items = null;
+			lc.events.Producer.prototype.destroy.call(this);
 		}
 	}
 );

@@ -48,6 +48,45 @@
 			border-right: 1px solid #C0C0C0;
 			padding: 2px;
 			
+			.lc-grid-tree-depth {
+				width: 20px;
+			}
+			
+			.lc-grid-tree-collapser {
+				width: 15px;
+			    height: 100%;
+			    position: relative;
+			    
+			    &.has-children {
+			    	cursor: pointer;
+			
+					&:before {
+						position: absolute;
+						top: 0px;
+					    height: 100%;
+					    width: 100%;
+					    
+						display: flex;
+					    flex-direction: row;
+					    align-items: center;
+					    justify-content: center;
+					    line-height: 0px;
+					    font-weight: normal;
+					}
+					
+					&.collapsed:before {
+						content: '\25B7';
+						font-size: 14px;
+						transform: scaleX(0.7);
+					}
+					&.expanded:before {
+						content: '\25E2';
+						font-size: 12px;
+						transform: none;
+					}
+			    }
+			}
+			
 		}
 		
 	}
